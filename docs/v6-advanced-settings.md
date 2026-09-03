@@ -35,11 +35,15 @@ inside Boost — it relies on the same local database the rest of AndroidAPS use
 - Runs in the background while V6 is active. Rather than a single global "done" flag, each setting
   resolves once, independently — a value is written the first time there is enough data to derive
   it, and left alone thereafter. If there isn't enough data yet, it does nothing and retries next
-  cycle.
+  cycle. **Periodic re-derivation:** every 3 days (on a 14-day window) Boost re-checks the
+  derivation against your recent history and follows genuine drift, so a therapy or metabolism
+  change is priced in within days rather than weeks. Movement is filtered per setting (noise
+  deadband, repeat-confirmation) and dose-cap raises remain raise-guarded.
 - **Suggestion-only** — it writes a setting only if you haven't already changed it from a
   factory default (*any* factory default that setting ever shipped with, so a value carried over
   from an older build still counts as untouched). It never overrides anything you have tuned.
-- Needs **≥ 7 days of data and ≥ 1500 CGM readings**; otherwise it waits.
+- Needs **≥ 2 days with insulin data and ≥ 700 CGM readings** (sized to the shortest derivation
+  window, 3 days); otherwise it waits.
 - **Never auto-raises aggression** above neutral on day one; safety knobs only ever *tighten*.
 - **Wrapped so any failure is logged and swallowed** — it can never block or alter the dose path.
 - It **logs the full reasoning and notifies you** of exactly what it set and why.

@@ -217,9 +217,12 @@ class BoostV5RedriveTest {
         assertThat(BoostV5AutoConfig.REDRIVE_SCHEMA_VERSION).isGreaterThan(0)
     }
 
-    @Test fun `cadence and window are the values the grid selected`() {
-        assertThat(BoostV5AutoConfig.REDRIVE_INTERVAL_DAYS).isEqualTo(7L)
-        assertThat(BoostV5AutoConfig.REDRIVE_LOOKBACK_DAYS).isEqualTo(28L)
+    @Test fun `cadence and window are the regimen-change responsive values (2026-09)`() {
+        // 2026-09: 3/14 instead of the CADENCE_GRID-optimal 7/28 — regimen-change latency is a
+        // safety concern; short-window noise is absorbed on the write side (deadband,
+        // AWAITING_CONFIRMATION, raise-guard), not by lengthening the window.
+        assertThat(BoostV5AutoConfig.REDRIVE_INTERVAL_DAYS).isEqualTo(3L)
+        assertThat(BoostV5AutoConfig.REDRIVE_LOOKBACK_DAYS).isEqualTo(14L)
     }
 
     @Test fun `maxIOB and the bolus cap are never tracked`() {

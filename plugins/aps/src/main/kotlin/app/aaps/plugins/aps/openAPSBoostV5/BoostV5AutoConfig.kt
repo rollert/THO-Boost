@@ -25,8 +25,11 @@ import kotlin.math.min
 object BoostV5AutoConfig {
 
     // Minimum data before we'll auto-configure at all (else leave factory defaults).
-    const val MIN_DAYS = 7
-    const val MIN_BG_READINGS = 1500          // ~7 days of 5-min CGM minus gaps
+    // 2026-09: scaled to the SHORTEST derivation window (3-day redrive lookback) so compute()
+    // never silently deactivates on short windows: 2 of 3 days with TDD > 0 (tolerates one
+    // pump/sync outage), ~230 CGM/day × 3 minus one sensor warm-up and one quiet night.
+    const val MIN_DAYS = 2
+    const val MIN_BG_READINGS = 700           // ~3 days of 5-min CGM minus gaps
 
     // Glycaemic thresholds that trigger extra caution (international consensus targets).
     private const val TBR70_TARGET = 4.0      // % time <70 mg/dL
@@ -52,22 +55,30 @@ object BoostV5AutoConfig {
     const val LOOKBACK_DAYS = 14L
 
     /**
-     * PERIODIC RE-DERIVATION (2026-08-03). Auto-config derives once at migration; a person drifts.
-     * The cadence grid over real history (backtesting/scripts/2026-08-autoconfig-redrive/
-     * CADENCE_GRID.md, 8 users) priced every window/step pair:
+     * PERIODIC RE-DERIVATION. Auto-config derives once at migration; a person drifts — and a
+     * REGIMEN CHANGE (therapy change, illness, physiology shift) makes lag a safety problem, not
+     * a comfort one: knobs derived from "last week needed a lot" can dose into a fight for one's
+     * life today. 2026-09: cadence 7→3 days, window 28→14, cutting effective lag (W/2 + S/2)
+     * from ~17.5 d to ~8.5 d.
+     *
+     * The earlier cadence-grid evidence (backtesting/scripts/2026-08-autoconfig-redrive/
+     * CADENCE_GRID.md, 8 users) still holds as a measurement — 28/7 priced best for TDD *drift*
+     * tracking:
      *
      *   W/S    lag(d)  changes/6mo  travel:progress  moves surviving the deadband
      *   14/7    10.5      15.9           5.0                 6.09
      *   14/14   14         8.8           3.2                 4.10
      *   28/7    17.5      13.4           3.9                 2.89
-     *   28/14   21         7.1           2.7                 2.40
+     *   28/14   21         7.1           3.9                 2.40
      *   28/28   28         4.1           3.0                 1.79
      *
-     * 28 days is the window because 14 is noise-dominated: two independent 14-day derivations of
-     * the SAME fortnight differ by 0.69 U [0.30, 1.17] on confirmedCap. 7 days is the cadence
-     * because evaluating often is cheap once the deadband, not the schedule, decides whether to
-     * write. Effective lag is W/2 + S/2 ~ 17.5 d, which is immaterial against what is being
-     * tracked: TDD drift, whose 5-month drift-to-noise ratio is only 2.72 [1.15, 4.59].
+     * but its criterion (progress-per-change on slow drift) does not weigh regimen-change
+     * responsiveness. The noisier short-window derivations are absorbed on the WRITE side, not
+     * the compute side: per-knob deadbands (INSIDE_DEADBAND), double-confirmation quantisation
+     * (AWAITING_CONFIRMATION), and the TBR raise-guard all still gate every movement — no
+     * single noisy 3-day sample can reach a dose-parameter change unfiltered. Minimum data
+     * thresholds (MIN_DAYS / MIN_BG_READINGS) are scaled to the shortest window so compute()
+     * declines nothing that a 3-day window could legitimately support.
      */
     /**
      * Re-derivation persistence schema version. 2 = movement tracking with baselines (rev 2).
@@ -76,8 +87,8 @@ object BoostV5AutoConfig {
      */
     const val REDRIVE_SCHEMA_VERSION = 2
 
-    const val REDRIVE_INTERVAL_DAYS = 7L
-    const val REDRIVE_LOOKBACK_DAYS = 28L
+    const val REDRIVE_INTERVAL_DAYS = 3L
+    const val REDRIVE_LOOKBACK_DAYS = 14L
     private const val SEV54_TARGET = 1.0      // % time <54 mg/dL
 
     /**
