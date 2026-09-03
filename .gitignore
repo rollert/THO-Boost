@@ -43,3 +43,6 @@ CLAUDE.local.md
 __pycache__/
 *.pyc
 backtesting/scripts/2026-09-meal-clock/out_merged/
+
+# Throwaway build/test output captures (AAPS build guard forces commits; keep logs out)
+build_test_out.txt
