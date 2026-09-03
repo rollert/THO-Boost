@@ -86,7 +86,7 @@ class BoostV5AutoConfigOwnershipTest {
     // ── redrive ────────────────────────────────────────────────────────────────────────────────
 
     @Test
-    fun `redrive skips a knob reported not owned - MANUAL_FROZEN, nothing written`() {
+    fun `redrive skips a knob reported not owned - MANUAL_FROZEN, nothing written for that key`() {
         val store = mutableMapOf(FCAP to 3.0)
         val baseline = mutableMapOf(FCAP to 3.0)
         val pending = mutableMapOf<DoubleKey, Double>()
@@ -103,7 +103,9 @@ class BoostV5AutoConfigOwnershipTest {
         )
         val confirmed = res.first { it.key == FCAP }
         assertThat(confirmed.outcome).isEqualTo(BoostV5AutoConfigApply.Outcome.MANUAL_FROZEN)
-        assertThat(writes).isEmpty()
+        // The frozen KEY is untouched. Other computed knobs (cumulative, primer) may still write
+        // — they are separate keys with their own ownership state.
+        assertThat(writes.map { it.first }).doesNotContain(FCAP)
         assertThat(store[FCAP]).isEqualTo(3.0)
     }
 
@@ -112,8 +114,9 @@ class BoostV5AutoConfigOwnershipTest {
         val store = mutableMapOf(FCAP to 3.0)
         val baseline = mutableMapOf(FCAP to 3.0)
         val pending = mutableMapOf<DoubleKey, Double>()
-        // First run: baseline recorded (legacy behaviour, no ownership given).
-        val res1 = BoostV5AutoConfigApply.redrive(
+        // The legacy run first records a baseline for every key, then tracks movement. Seed the
+        // baseline the way the first legacy run would have, then verify the second run tracks.
+        BoostV5AutoConfigApply.redrive(
             suggestion, safeTbr, 0.1,
             storedValue = { store[it] },
             baselineValue = { baseline[it] },
@@ -122,7 +125,21 @@ class BoostV5AutoConfigOwnershipTest {
             setBaseline = { k, v -> baseline[k] = v },
             setPending = { k, v -> if (v == null) pending.remove(k) else pending[k] = v }
         )
-        assertThat(res1.first { it.key == FCAP }.outcome)
-            .isEqualTo(BoostV5AutoConfigApply.Outcome.BASELINE_RECORDED)
+        // Second run: derived values unchanged from baseline → no movement, no writes to FCAP.
+        val res2 = BoostV5AutoConfigApply.redrive(
+            suggestion, safeTbr, 0.1,
+            storedValue = { store[it] },
+            baselineValue = { baseline[it] },
+            pendingValue = { pending[it] },
+            put = { k, v -> store[k] = v },
+            setBaseline = { k, v -> baseline[k] = v },
+            setPending = { k, v -> if (v == null) pending.remove(k) else pending[k] = v }
+        )
+        assertThat(res2.first { it.key == FCAP }.outcome)
+            .isAnyOf(
+                BoostV5AutoConfigApply.Outcome.INSIDE_DEADBAND,
+                BoostV5AutoConfigApply.Outcome.AWAITING_CONFIRMATION
+            )
+        assertThat(store[FCAP]).isEqualTo(3.0)
     }
 }

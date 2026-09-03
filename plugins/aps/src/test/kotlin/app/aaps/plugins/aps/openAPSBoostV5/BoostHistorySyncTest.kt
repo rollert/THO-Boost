@@ -52,7 +52,9 @@ class BoostHistorySyncTest {
     }
 
     @Test fun `the backfill window covers both consumers and no more`() {
-        assertThat(BoostHistorySync.BACKFILL_DAYS).isEqualTo(BoostV5AutoConfig.LOOKBACK_DAYS)
+        // 7 days since 2026-09: covers the 4-day auto-config windows AND the 7-day TDD blend
+        // (which the auto-config windows no longer bound).
+        assertThat(BoostHistorySync.BACKFILL_DAYS).isEqualTo(7L)
         assertThat(BoostHistorySync.BACKFILL_DAYS).isAtLeast(7L)   // the TDD blend
     }
 
@@ -77,7 +79,7 @@ class BoostHistorySyncTest {
     @Test fun `a gap plus a configured Nightscout requests the bounded backfill`() {
         val d = BoostHistorySync.decide(migrated, nsAvailable = true, now = t0, isoNow = iso, state = fresh)
         assertThat(d.requestBackfill).isTrue()
-        assertThat(d.summary).isEqualTo("requested:14d,attempt=1/3,days=2/2,bg=430/700,tr=18/50@$iso")
+        assertThat(d.summary).isEqualTo("requested:7d,attempt=1/3,days=2/2,bg=430/700,tr=18/50@$iso")
         assertThat(d.newState!!.attempts).isEqualTo(1)
         assertThat(d.newState!!.lastAttemptMs).isEqualTo(t0)
         // Pre-counts snapshotted so the eventual outcome line can report a real delta.
@@ -91,7 +93,7 @@ class BoostHistorySyncTest {
             state = BoostHistorySync.State(attempts = 1, lastAttemptMs = t0, preBgReadings = 430, preTreatments = 18)
         )
         assertThat(after.requestBackfill).isFalse()
-        assertThat(after.summary).isEqualTo("filled:14d,treatments=+602,bg=+3470@$iso")
+        assertThat(after.summary).isEqualTo("filled:7d,treatments=+602,bg=+3470@$iso")
         // Counters zeroed — that is what closes the episode. The first-seen anchor is deliberately
         // KEPT: zeroing it would let the new-install window restart if history later degraded.
         assertThat(after.newState!!.attempts).isEqualTo(0)
@@ -178,7 +180,7 @@ class BoostHistorySyncTest {
             partial, nsAvailable = true, now = t0 + 60 * 60_000, isoNow = iso,
             state = BoostHistorySync.State(attempts = 1, lastAttemptMs = t0, preBgReadings = 430, preTreatments = 18)
         )
-        assertThat(d.summary).isEqualTo("filled:14d,treatments=+382,bg=+2070@$iso")
+        assertThat(d.summary).isEqualTo("filled:7d,treatments=+382,bg=+2070@$iso")
         assertThat(d.newState!!.attempts).isEqualTo(0)
     }
 
