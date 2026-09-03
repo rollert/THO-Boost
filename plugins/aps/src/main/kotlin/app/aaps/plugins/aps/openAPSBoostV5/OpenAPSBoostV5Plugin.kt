@@ -39,6 +39,7 @@ import app.aaps.core.keys.UnitDoubleKey
 import app.aaps.core.keys.interfaces.Preferences
 import app.aaps.plugins.aps.getBoostDosing
 import app.aaps.core.validators.preferences.AdaptiveDoublePreference
+import androidx.preference.SwitchPreferenceCompat
 import app.aaps.core.validators.preferences.AdaptiveSwitchPreference
 import app.aaps.core.validators.preferences.AdaptiveUnitPreference
 import app.aaps.plugins.aps.OpenAPSFragment
@@ -218,6 +219,45 @@ open class OpenAPSBoostV5Plugin @Inject constructor(
     private fun isResolved(prefKey: String) = preferences.get(BooleanComposedKey.BoostV5AutoConfigResolved, prefKey)
     private fun markResolved(prefKey: String) = preferences.put(BooleanComposedKey.BoostV5AutoConfigResolved, prefKey, value = true)
 
+    /**
+     * Per-knob auto-config OWNERSHIP (2026-09 override workflow). True = the user explicitly
+     * handed the knob back to auto-config via the "Auto" switch: the derivation may then
+     * override an otherwise user-tuned value (all write-side guards still apply). False (the
+     * default) = the historical behaviour — a tuned value is never touched. Cleared together
+     * with the resolved flag by [returnKnobToAuto]; re-set by [takeKnobManual].
+     */
+    private fun isOwned(prefKey: String) = preferences.get(BooleanComposedKey.BoostV5AutoConfigOwned, prefKey)
+    private fun setOwned(prefKey: String, owned: Boolean) {
+        if (owned) preferences.put(BooleanComposedKey.BoostV5AutoConfigOwned, prefKey, value = true)
+        else preferences.remove(BooleanComposedKey.BoostV5AutoConfigOwned, prefKey)
+    }
+
+    /**
+     * "Auto" switch ON: give the knob back to auto-config. Clears BOTH the owned flag and the
+     * resolved mark — the cleared resolved flag makes configEvaluationDue() true, so the
+     * ONBOARDING path (maybeAutoConfigure) re-derives within one APS cycle, where isUserTuned is
+     * bypassed for owned knobs (see BoostV5AutoConfigApply.applyAutoConfig). The redrive cadence
+     * is irrelevant to a toggle. All write-side guards (raise-guard, deadband, repeat-
+     * confirmation) still apply to what gets written; the result surfaces as the usual
+     * notification with rationale.
+     */
+    private fun returnKnobToAuto(prefKey: String) {
+        setOwned(prefKey, true)
+        preferences.remove(BooleanComposedKey.BoostV5AutoConfigResolved, prefKey)
+        aapsLogger.info(LTag.APS, "BoostV5 auto-config: $prefKey returned to AUTO by user (re-derivation pending)")
+        scheduleConfigEvaluation()
+    }
+
+    /** "Auto" switch OFF: the user takes over — knob is owned by the user and frozen for all
+     *  future derivations and re-derivations. The current value stays as-is. */
+    private fun takeKnobManual(prefKey: String) {
+        setOwned(prefKey, false)
+        // Mark resolved so the onboarding path never tries to derive it again (the value may be
+        // at a factory default by coincidence — a mark is what "kept" semantics need).
+        markResolved(prefKey)
+        aapsLogger.info(LTag.APS, "BoostV5 auto-config: $prefKey taken MANUAL by user (frozen)")
+    }
+
     /** Auto-config-managed boolean dosing switches (2026-07-17 convention: every new dosing switch is
      *  auto-config managed). Each resolves once, suggestion-only, exactly like the double knobs. */
     private val managedBooleanKeys = listOf(
@@ -353,6 +393,7 @@ open class OpenAPSBoostV5Plugin @Inject constructor(
         val pending = ledger(StringKey.ApsBoostV5AutoConfigPending)
         val res = synchronized(configLock) { BoostV5AutoConfigApply.redrive(
             suggestion, tbrBelow70Pct = g.tbr70, timeBelow54Pct = g.sev54,
+            isOwned = { isOwned(it.key) },
             storedValue = { preferences.getIfExists(it) },
             baselineValue = { baselines[it.key] },
             pendingValue = { pending[it.key] },
@@ -492,7 +533,9 @@ open class OpenAPSBoostV5Plugin @Inject constructor(
 
         // Steady state: everything resolved → nothing to do (cheap check, no data pulls).
         val allKeys = BoostV5AutoConfigApply.managedDoubleKeys.map { it.key } + managedBooleanKeys.map { it.key }
-        if (allKeys.all { isResolved(it) }) return
+        // An OWNED knob is always eligible: the user handed it to auto-config, so the resolved
+        // mark must not permanently end its derivation.
+        if (allKeys.all { isResolved(it) && !isOwned(it) }) return
 
         val now = dateUtil.now()
         val g = gatherProfile(now, BoostV5AutoConfig.LOOKBACK_DAYS)
@@ -534,6 +577,7 @@ open class OpenAPSBoostV5Plugin @Inject constructor(
             tbrBelow70Pct = tbr70,
             timeBelow54Pct = sev54,
             isResolved = { isResolved(it.key) },
+            isOwned = { isOwned(it.key) },
             storedValue = { preferences.getIfExists(it) },
             put = { key, value -> preferences.put(key, value) },
             markResolved = { markResolved(it.key) }
@@ -1040,6 +1084,46 @@ open class OpenAPSBoostV5Plugin @Inject constructor(
         // Shared engine settings nested under Advanced. includeEngineEssentials = false: the
         // 6 essentials above are NOT repeated inside the engine sub-screens (no duplicate keys).
         openAPSBoostEngine.get().addBoostEngineCategories(preferenceManager, advanced, context, includeEngineEssentials = false)
+
+        // ── Auto-configuration ownership (2026-09 override workflow). One "Auto" switch per
+        //    managed knob: ON = the user hands the knob back to auto-config (re-derivation
+        //    within one cycle, guards still apply); OFF = manual, frozen. Default OFF — the
+        //    switches exist only to RETURN a knob; a knob the user has never touched is already
+        //    derivable and needs no ownership mark. ──
+        val autoConfig = PreferenceCategory(context)
+        advanced.addPreference(autoConfig)
+        autoConfig.apply {
+            key = "boost_v5_autoconfig_ownership"
+            title = rh.gs(R.string.boost_v5_autoconfig_ownership_title)
+            initialExpandedChildrenCount = 0
+        }
+        fun managedKnobTitle(key: String): String = when (key) {
+            DoubleKey.ApsBoostV5Aggression.key             -> rh.gs(R.string.boost_v5_aggression_title)
+            DoubleKey.ApsBoostV5HypoCaution.key            -> rh.gs(R.string.boost_v5_hypo_caution_title)
+            DoubleKey.ApsBoostV5ConfirmedCapU.key          -> rh.gs(R.string.boost_v5_confirmed_cap_title)
+            DoubleKey.ApsBoostV5CommittedCapU.key          -> rh.gs(R.string.boost_v5_committed_cap_title)
+            DoubleKey.ApsBoostV5PrimerCapU.key             -> rh.gs(R.string.boost_v5_primer_cap_title)
+            BooleanKey.ApsBoostV5FastCarbConfirm.key       -> rh.gs(R.string.boost_v5_fast_carb_confirm_title)
+            BooleanKey.ApsBoostV5AggressiveEarlyConfirm.key-> rh.gs(R.string.boost_v5_aggressive_early_confirm_title)
+            BooleanKey.ApsBoostV5VelocityBudgetActive.key  -> rh.gs(R.string.boost_v5_velocity_budget_title)
+            else                                           -> key
+        }
+        for (knob in BoostV5AutoConfigApply.managedDoubleKeys.map { it.key } + managedBooleanKeys.map { it.key }) {
+            autoConfig.addPreference(SwitchPreferenceCompat(context).apply {
+                key = "boost_v5_auto_${knob}"
+                title = managedKnobTitle(knob)
+                summaryOn = rh.gs(R.string.boost_v5_auto_on_summary)
+                summaryOff = rh.gs(R.string.boost_v5_auto_off_summary)
+                isChecked = isOwned(knob)
+                setOnPreferenceChangeListener { _, newValue ->
+                    val owned = newValue as? Boolean ?: false
+                    if (owned != isOwned(knob)) {
+                        if (owned) returnKnobToAuto(knob) else takeKnobManual(knob)
+                    }
+                    true   // the switch is state display; actual state lives in the owned flag
+                }
+            })
+        }
         category.addPreference(advanced)
     }
 }

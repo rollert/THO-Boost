@@ -89,6 +89,10 @@
     <string name="boost_v5_committed_cap_summary">Hard upper limit on V6\'s per-cycle COMMITTED holding SMB. Default: 0.5 U</string>
     <string name="boost_v5_primer_cap_title">V6 acceleration primer (U)</string>
     <string name="boost_v5_primer_cap_summary">Fizzle-safe early primer delivered on an accelerating rise during OBSERVING — reclaims V1\'s ~15-min-earlier meal response. Additive up to this base; any velocity-scaled excess is netted off the CONFIRMED commit-shot (move, not add). 0 = OFF. Auto-config derives a per-user value.</string>
+    <!-- 2026-09 auto-config ownership (per-knob "Auto" switch) -->
+    <string name="boost_v5_autoconfig_ownership_title">Auto-configuration (per setting)</string>
+    <string name="boost_v5_auto_on_summary">AUTO — Boost may re-derive this setting from your recent history (within one cycle; all safety guards still apply)</string>
+    <string name="boost_v5_auto_off_summary">MANUAL — your value is frozen; Boost will not change it</string>
     <string name="boost_v5_primer_bolus_mode_title">Force bolus primer</string>
     <string name="boost_v5_primer_bolus_mode_summary">Override: deliver the acceleration primer as a bolus even if auto-config routed you to the retractable temp-basal fallback (for hypo-prone users). Floors and the commit-shot net-off are unaffected. Default OFF (respect auto-config routing).</string>
     <!-- 2026-08-27 confirm tranche. TEST BUILD ONLY: these three come out of the preference

@@ -16,9 +16,9 @@ package app.aaps.plugins.aps.openAPSBoostV5
  *
  * WHY 14 DAYS
  * -----------
- * 14 days is exactly what the consumers need: the 7-day TDD blend, the onboarding
- * [BoostV5AutoConfig.LOOKBACK_DAYS], and — since 2026-09 — the re-derivation window
- * [BoostV5AutoConfig.REDRIVE_LOOKBACK_DAYS] (also 14). Nothing in Boost looks further back, so nothing further back is
+ * 2026-09: 7 days. Covers the 7-day TDD blend and the 4-day auto-config windows
+ * ([BoostV5AutoConfig.LOOKBACK_DAYS] / [BoostV5AutoConfig.REDRIVE_LOOKBACK_DAYS]). Nothing in
+ * Boost looks further back, so nothing further back is
  * fetched. NSClient's own "full synchronization" already exists for this shape of problem, but it is
  * manual, unbounded (100 days) and also re-uploads everything; this asks for the download half of it,
  * bounded.
@@ -31,13 +31,13 @@ package app.aaps.plugins.aps.openAPSBoostV5
  */
 object BoostHistorySync {
 
-    /** Window handed to NSClient. Covers the 7-day TDD blend and auto-config's 14-day lookback. */
-    const val BACKFILL_DAYS = 14L
+    /** Window handed to NSClient. Covers the 7-day TDD blend and auto-config's 4-day windows. */
+    const val BACKFILL_DAYS = 7L
 
-    /** Days carrying a non-zero TDD, out of the last [BACKFILL_DAYS]. Mirrors BoostV5AutoConfig.MIN_DAYS (2 since 2026-09 — scaled to the 3-day redrive window). */
+    /** Days carrying a non-zero TDD, out of the last [BACKFILL_DAYS]. Mirrors BoostV5AutoConfig.MIN_DAYS (2). */
     const val MIN_DAYS_WITH_TDD = BoostV5AutoConfig.MIN_DAYS
 
-    /** CGM rows in the last [BACKFILL_DAYS]. Mirrors BoostV5AutoConfig.MIN_BG_READINGS (700 since 2026-09, ~3 days). */
+    /** CGM rows in the last [BACKFILL_DAYS]. Mirrors BoostV5AutoConfig.MIN_BG_READINGS (700). */
     const val MIN_BG_READINGS = BoostV5AutoConfig.MIN_BG_READINGS
 
     /**

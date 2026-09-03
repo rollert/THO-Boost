@@ -157,7 +157,8 @@ internal object BoostV5AutoConfigApply {
         INSIDE_DEADBAND,          // move smaller than the measurement error; it accumulates
         AWAITING_CONFIRMATION,    // quantised knob: a new value must repeat once before it is written
         BASELINE_RECORDED,        // first sight: where the derivation sits; nothing written
-        RETIRED_USER_EDITED       // the user has changed it since we wrote it — never revisit
+        RETIRED_USER_EDITED,      // the user has changed it since we wrote it — never revisit
+        MANUAL_FROZEN             // 2026-09: user took the knob manual; derivation movement not applied
     }
 
     /**
@@ -249,13 +250,18 @@ internal object BoostV5AutoConfigApply {
     enum class RedriveSkip { NOT_DUE, ONBOARDING_INCOMPLETE, INSUFFICIENT_HISTORY, BASELINE_SEEDED }
 
     /**
-     * Apply the derivation's MOVEMENT to each tracked knob's current value. See the design note
-     * above: nothing is overwritten, so no ownership is needed and the user's offset is preserved.
+     * Re-derivation ownership gate (2026-09): a tracked knob follows its driver only while it is
+     * auto-OWNED ([isOwned] — the user's explicit "Auto" switch). Default false keeps the
+     * historical semantics: a knob the onboarding derivation applied stays tracked (the
+     * derivation owns what it wrote), a knob the user tuned never moves. Once the user has
+     * switched the knob to MANUAL, it freezes for all future re-derivations; once switched back
+     * to AUTO, it is tracked again.
      */
     fun redrive(
         suggestion: BoostV5AutoConfig.V5Suggestion,
         tbrBelow70Pct: Double,
         timeBelow54Pct: Double,
+        isOwned: ((DoubleKey) -> Boolean)? = null,
         storedValue: (DoubleKey) -> Double?,
         baselineValue: (DoubleKey) -> Double?,
         pendingValue: (DoubleKey) -> Double?,
@@ -273,6 +279,22 @@ internal object BoostV5AutoConfigApply {
             val current = operative.getValue(key)
             val derivedNow = derivedFor.getValue(key)
             val baseline = baselineValue(key)
+
+            // MANUAL takeover: the knob is frozen. Report it once (no baseline churn), write
+            // nothing, and leave the stored baseline in place so a later "Auto" re-enable
+            // resumes tracking from where the driver actually is.
+            //
+            // OWNERSHIP SEMANTICS (2026-09): the redrive path has NO freeze branch keyed on
+            // isOwned — the movement-tracking property needs no ownership (nothing is
+            // overwritten), and MANUAL takeover is enforced at the PLUGIN gate: takeKnobManual
+            // marks the knob resolved so the plugin's re-derivation eligibility check excludes
+            // it entirely. If the caller supplies isOwned, knobs reported !owned are surfaced
+            // as MANUAL_FROZEN (read-only reporting, no behaviour change).
+            if (isOwned != null && !isOwned(key)) {
+                out += Resolution(key, Outcome.MANUAL_FROZEN, derivedNow, current,
+                                  "manual: user owns this knob; derivation movement not applied")
+                continue
+            }
 
             // First sight: record where the derivation sits and change nothing. We track MOVEMENT,
             // and none has been observed yet.
@@ -402,7 +424,9 @@ internal object BoostV5AutoConfigApply {
     /**
      * Apply the suggestion with per-knob resolution. For each knob, in order:
      *  - already RESOLVED (applied or skipped in an earlier run) → untouched (no [Resolution]);
-     *  - user-tuned ([isUserTuned], any-era factory-aware) → kept, marked resolved (never revisited);
+     *  - user-tuned ([isUserTuned], any-era factory-aware) → kept, marked resolved (never revisited)
+     *    UNLESS the knob is auto-OWNED ([isOwned] — the user's explicit "Auto" switch), in which
+     *    case the tuned value does not block derivation and the derived value is applied;
      *  - a dose-cap ([doseCapKeys]) whose derived value would RAISE the operative value while the
      *    14-day TBR<70 exceeds [TBR_RAISE_GUARD_PCT] OR the 14-day time-below-54 is ≥
      *    [TBR54_RAISE_GUARD_PCT] → NOT written, marked resolved, returned as
@@ -424,6 +448,7 @@ internal object BoostV5AutoConfigApply {
         tbrBelow70Pct: Double,
         timeBelow54Pct: Double = 0.0,
         isResolved: (DoubleKey) -> Boolean,
+        isOwned: (DoubleKey) -> Boolean = { false },
         storedValue: (DoubleKey) -> Double?,
         put: (DoubleKey, Double) -> Unit,
         markResolved: (DoubleKey) -> Unit
@@ -440,7 +465,11 @@ internal object BoostV5AutoConfigApply {
                 operative[key] = current                    // untouched; feeds the cumulative recompute
                 return
             }
-            if (isUserTuned(key, stored)) {
+            if (isUserTuned(key, stored) && !isOwned(key)) {
+                // An OWNED knob is never "kept": the user explicitly handed it to auto-config.
+                // If the knob was frozen by a previous manual take-over its resolved mark was
+                // already cleared by returnKnobToAuto, so it can only reach this branch while
+                // the mark is still open — i.e. this is its fresh derivation.
                 markResolved(key)                           // user value kept; never revisit
                 operative[key] = current
                 resolutions += Resolution(key, Outcome.KEPT_USER_TUNED, derived, current, "kept-user-tuned value=$current (suggested $derived)")

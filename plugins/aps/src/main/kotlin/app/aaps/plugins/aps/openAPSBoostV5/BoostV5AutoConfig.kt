@@ -25,11 +25,11 @@ import kotlin.math.min
 object BoostV5AutoConfig {
 
     // Minimum data before we'll auto-configure at all (else leave factory defaults).
-    // 2026-09: scaled to the SHORTEST derivation window (3-day redrive lookback) so compute()
-    // never silently deactivates on short windows: 2 of 3 days with TDD > 0 (tolerates one
-    // pump/sync outage), ~230 CGM/day × 3 minus one sensor warm-up and one quiet night.
+    // 2026-09: scaled to the derivation window (4-day lookback) so compute() never silently
+    // deactivates: 2 of 4 days with TDD > 0 (tolerates pump/sync outages), ~175 CGM/day × 4
+    // minus sensor warm-ups and quiet nights.
     const val MIN_DAYS = 2
-    const val MIN_BG_READINGS = 700           // ~3 days of 5-min CGM minus gaps
+    const val MIN_BG_READINGS = 700           // ~4 days of 5-min CGM minus gaps
 
     // Glycaemic thresholds that trigger extra caution (international consensus targets).
     private const val TBR70_TARGET = 4.0      // % time <70 mg/dL
@@ -52,33 +52,40 @@ object BoostV5AutoConfig {
     const val WELL_CONTROLLED_MAX_SEV54 = 0.3
 
     /** History window for auto-config (also used by the plugin's data pulls). */
-    const val LOOKBACK_DAYS = 14L
+    const val LOOKBACK_DAYS = 4L
 
     /**
      * PERIODIC RE-DERIVATION. Auto-config derives once at migration; a person drifts — and a
      * REGIMEN CHANGE (therapy change, illness, physiology shift) makes lag a safety problem, not
      * a comfort one: knobs derived from "last week needed a lot" can dose into a fight for one's
-     * life today. 2026-09: cadence 7→3 days, window 28→14, cutting effective lag (W/2 + S/2)
-     * from ~17.5 d to ~8.5 d.
+     * life today. 2026-09 (final): cadence 3→1 day, window 14→4, cutting effective lag
+     * (W/2 + S/2) to ~2.5 d. The derivation base IS the last 4 days — short-window noise is
+     * absorbed on the WRITE side (per-knob deadbands, AWAITING_CONFIRMATION repeat-confirmation,
+     * TBR raise-guard), never by lengthening the window.
+     *
+     * Known short-window noise cases (accepted, direction-biased conservative):
+     *  - A single adrenaline/illness day is 25% of the sample — but cap RAISES from it are
+     *    raise-guarded and a low-TDD illness path only raises ISF (LESS aggressive corrections);
+     *    the implausible-TDD guard still covers corrupted (not physiological) TDD.
+     *  - A single hypo-night lifts TBR<70 by ~8pp on 4 days (vs ~2pp on 14): fully believed,
+     *    HypoCaution rises, raise-guard closes. Intended; only over-caution, never less safe.
+     *    MONITOR: if a single hypo-night proves too sensitive in practice, the fix is the
+     *    HypoCaution formula weighting, not the window length.
+     *  - Consecutive 4-day windows overlap 3 of 4 days, so AWAITING_CONFIRMATION's independence
+     *    assumption is weaker — a real but single weekend pattern can confirm itself. Accepted
+     *    trade: faster adaptation to a real pattern vs. seeing a regimen change 2 weeks late.
+     *    Deadband + raise-guard remain the last lines.
      *
      * The earlier cadence-grid evidence (backtesting/scripts/2026-08-autoconfig-redrive/
-     * CADENCE_GRID.md, 8 users) still holds as a measurement — 28/7 priced best for TDD *drift*
-     * tracking:
+     * CADENCE_GRID.md, 8 users) remains a valid MEASUREMENT but its criterion (progress-per-
+     * change on slow TDD drift) no longer governs; the criterion is now regimen-change latency.
      *
      *   W/S    lag(d)  changes/6mo  travel:progress  moves surviving the deadband
      *   14/7    10.5      15.9           5.0                 6.09
      *   14/14   14         8.8           3.2                 4.10
      *   28/7    17.5      13.4           3.9                 2.89
-     *   28/14   21         7.1           3.9                 2.40
+     *   28/14   21         7.1           2.7                 2.40
      *   28/28   28         4.1           3.0                 1.79
-     *
-     * but its criterion (progress-per-change on slow drift) does not weigh regimen-change
-     * responsiveness. The noisier short-window derivations are absorbed on the WRITE side, not
-     * the compute side: per-knob deadbands (INSIDE_DEADBAND), double-confirmation quantisation
-     * (AWAITING_CONFIRMATION), and the TBR raise-guard all still gate every movement — no
-     * single noisy 3-day sample can reach a dose-parameter change unfiltered. Minimum data
-     * thresholds (MIN_DAYS / MIN_BG_READINGS) are scaled to the shortest window so compute()
-     * declines nothing that a 3-day window could legitimately support.
      */
     /**
      * Re-derivation persistence schema version. 2 = movement tracking with baselines (rev 2).
@@ -87,16 +94,18 @@ object BoostV5AutoConfig {
      */
     const val REDRIVE_SCHEMA_VERSION = 2
 
-    const val REDRIVE_INTERVAL_DAYS = 3L
-    const val REDRIVE_LOOKBACK_DAYS = 14L
+    const val REDRIVE_INTERVAL_DAYS = 1L
+    const val REDRIVE_LOOKBACK_DAYS = 4L
     private const val SEV54_TARGET = 1.0      // % time <54 mg/dL
 
     /**
      * Minimum manual (NORMAL) boluses in the window before their p90 may drive the Confirmed cap.
-     * Backtest evidence (7-user migration cohort, 2026-07-06): one user's derived confirmedCap of
-     * 6.8 U rested on a p90 of just FOUR manual boluses — one of them an 8 U outlier. A percentile
-     * of n=4 is noise, not a dose habit. Below this floor the Confirmed cap falls back to the SMB
-     * p95 alone (still clamped to [1.5, 7.5]).
+     * 2026-09: 10 → 8 (user decision) — still above the n=4 single-outlier-dominance zone, but
+     * reachable for 2-meal/day users even on the 4-day window. Backtest evidence (7-user
+     * migration cohort, 2026-07-06): one user's derived confirmedCap of 6.8 U rested on a p90 of
+     * just FOUR manual boluses — one of them an 8 U outlier. Below this floor the Confirmed cap
+     * falls back to the SMB p95 alone (for SMB-dominant users that is the CORRECT path — their
+     * SMB distribution is the real dose behaviour).
      */
     const val MIN_MANUAL_BOLUS_SAMPLES = 10
 
