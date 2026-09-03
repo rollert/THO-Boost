@@ -35,15 +35,15 @@ inside Boost — it relies on the same local database the rest of AndroidAPS use
 - Runs in the background while V6 is active. Rather than a single global "done" flag, each setting
   resolves once, independently — a value is written the first time there is enough data to derive
   it, and left alone thereafter. If there isn't enough data yet, it does nothing and retries next
-  cycle. **Periodic re-derivation:** every 3 days (on a 14-day window) Boost re-checks the
+  cycle. **Periodic re-derivation:** daily (on a 4-day window) Boost re-checks the
   derivation against your recent history and follows genuine drift, so a therapy or metabolism
-  change is priced in within days rather than weeks. Movement is filtered per setting (noise
-  deadband, repeat-confirmation) and dose-cap raises remain raise-guarded.
+  change is priced in within a couple of days rather than weeks. Movement is filtered per setting
+  (noise deadband, repeat-confirmation) and dose-cap raises remain raise-guarded.
 - **Suggestion-only** — it writes a setting only if you haven't already changed it from a
   factory default (*any* factory default that setting ever shipped with, so a value carried over
   from an older build still counts as untouched). It never overrides anything you have tuned.
-- Needs **≥ 2 days with insulin data and ≥ 700 CGM readings** (sized to the shortest derivation
-  window, 3 days); otherwise it waits.
+- Needs **≥ 2 days with insulin data and ≥ 700 CGM readings** (sized to the 4-day derivation
+  window); otherwise it waits.
 - **Never auto-raises aggression** above neutral on day one; safety knobs only ever *tighten*.
 - **Wrapped so any failure is logged and swallowed** — it can never block or alter the dose path.
 - It **logs the full reasoning and notifies you** of exactly what it set and why.
@@ -132,6 +132,21 @@ the Trio (Swift) port.
   materialise, a bolus cannot. `ApsBoostV5PrimerBolusMode` forces the bolus route if you want it.
 
 ### Aggression levers (not guards)
+
+#### Giving a setting back to auto (2026-09)
+
+Under **Advanced → Auto-configuration** every auto-config-managed setting has an **Auto**
+switch:
+
+- **ON (AUTO):** you hand the setting back to Boost. It is re-derived from your recent history
+  within one APS cycle (~5 minutes) — the periodic 3-day cadence is irrelevant here. All safety
+  guards still apply: dose-cap raises remain blocked while time-below-range is elevated, and the
+  result arrives as the usual notification with its reasoning.
+- **OFF (MANUAL):** you own the setting. Boost freezes it — onboarding, daily re-derivation and
+  every future cycle leave it untouched.
+
+The switch never writes a value synchronously and never bypasses a guard; it only changes *who*
+the setting belongs to.
 - **Velocity budget** (off) — puts a small floor under the velocity
   factor so a fast rise isn't throttled to nothing. Auto-config-managed; on only for well-controlled.
 - **Phase-3 composed brake floor** (off) — enforces a 25% floor on the composed soft-brake multiplier
