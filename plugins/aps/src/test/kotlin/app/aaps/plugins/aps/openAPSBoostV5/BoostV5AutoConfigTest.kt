@@ -22,11 +22,13 @@ class BoostV5AutoConfigTest {
     ) = BoostV5AutoConfig.V1Profile(days, bg, tdd, manual, smb, tbr70, sev54, meanBg, maxIob, maxBolus)
 
     @Test fun `insufficient days returns null`() {
-        assertThat(BoostV5AutoConfig.compute(profile(days = 5))).isNull()
+        // MIN_DAYS = 2 since 2026-09 (scaled to the 3-day redrive window)
+        assertThat(BoostV5AutoConfig.compute(profile(days = 1))).isNull()
+        assertThat(BoostV5AutoConfig.compute(profile(days = BoostV5AutoConfig.MIN_DAYS - 1))).isNull()
     }
 
     @Test fun `insufficient bg readings returns null`() {
-        assertThat(BoostV5AutoConfig.compute(profile(bg = 800))).isNull()
+        assertThat(BoostV5AutoConfig.compute(profile(bg = BoostV5AutoConfig.MIN_BG_READINGS - 1))).isNull()
     }
 
     @Test fun `in-target user gets neutral aggression and no extra caution`() {
@@ -447,7 +449,7 @@ class BoostV5AutoConfigTest {
 
     @Test fun `insufficient data resolves nothing so knobs genuinely retry`() {
         // The caller gets no suggestion → applyAutoConfig is never invoked → no knob resolves.
-        assertThat(BoostV5AutoConfig.compute(profile(days = 5))).isNull()
+        assertThat(BoostV5AutoConfig.compute(profile(days = 1))).isNull()
         val f = FakeStore()
         assertThat(f.resolved).isEmpty()                        // still all eligible
         // Once data accrues, the SAME store applies everything.

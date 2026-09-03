@@ -34,10 +34,10 @@ class BoostHistorySyncTest {
     }
 
     @Test fun `each of the three signals is sufficient on its own to flag a gap`() {
-        // Days of TDD short, everything else fine.
-        assertThat(BoostHistorySync.isSufficient(healthy.copy(daysWithTdd = 6))).isFalse()
+        // Days of TDD short, everything else fine. (MIN_DAYS = 2 since 2026-09.)
+        assertThat(BoostHistorySync.isSufficient(healthy.copy(daysWithTdd = 1))).isFalse()
         // CGM short.
-        assertThat(BoostHistorySync.isSufficient(healthy.copy(bgReadings = 1499))).isFalse()
+        assertThat(BoostHistorySync.isSufficient(healthy.copy(bgReadings = 699))).isFalse()
         // Treatments short.
         assertThat(BoostHistorySync.isSufficient(healthy.copy(treatments = 49))).isFalse()
     }
@@ -47,8 +47,8 @@ class BoostHistorySyncTest {
         assertThat(BoostHistorySync.MIN_DAYS_WITH_TDD).isEqualTo(BoostV5AutoConfig.MIN_DAYS)
         assertThat(BoostHistorySync.MIN_BG_READINGS).isEqualTo(BoostV5AutoConfig.MIN_BG_READINGS)
         // Boundary is inclusive — exactly at the minimum is enough, one below is not.
-        assertThat(BoostHistorySync.isSufficient(BoostHistorySync.History(7, 1500, 50))).isTrue()
-        assertThat(BoostHistorySync.isSufficient(BoostHistorySync.History(6, 1500, 50))).isFalse()
+        assertThat(BoostHistorySync.isSufficient(BoostHistorySync.History(BoostV5AutoConfig.MIN_DAYS, BoostV5AutoConfig.MIN_BG_READINGS, 50))).isTrue()
+        assertThat(BoostHistorySync.isSufficient(BoostHistorySync.History(BoostV5AutoConfig.MIN_DAYS - 1, BoostV5AutoConfig.MIN_BG_READINGS, 50))).isFalse()
     }
 
     @Test fun `the backfill window covers both consumers and no more`() {
@@ -77,7 +77,7 @@ class BoostHistorySyncTest {
     @Test fun `a gap plus a configured Nightscout requests the bounded backfill`() {
         val d = BoostHistorySync.decide(migrated, nsAvailable = true, now = t0, isoNow = iso, state = fresh)
         assertThat(d.requestBackfill).isTrue()
-        assertThat(d.summary).isEqualTo("requested:14d,attempt=1/3,days=2/7,bg=430/1500,tr=18/50@$iso")
+        assertThat(d.summary).isEqualTo("requested:14d,attempt=1/3,days=2/2,bg=430/700,tr=18/50@$iso")
         assertThat(d.newState!!.attempts).isEqualTo(1)
         assertThat(d.newState!!.lastAttemptMs).isEqualTo(t0)
         // Pre-counts snapshotted so the eventual outcome line can report a real delta.
@@ -110,7 +110,7 @@ class BoostHistorySyncTest {
     @Test fun `no Nightscout configured - records why, and does not consume an attempt`() {
         val d = BoostHistorySync.decide(migrated, nsAvailable = false, now = t0, isoNow = iso, state = fresh)
         assertThat(d.requestBackfill).isFalse()
-        assertThat(d.summary).isEqualTo("skipped:ns-unavailable,days=2/7,bg=430/1500,tr=18/50@$iso")
+        assertThat(d.summary).isEqualTo("skipped:ns-unavailable,days=2/2,bg=430/700,tr=18/50@$iso")
         // Only the cooldown clock moves: configuring Nightscout later still gets a full 3 attempts.
         assertThat(d.newState!!.attempts).isEqualTo(0)
         assertThat(d.newState!!.lastAttemptMs).isEqualTo(t0)
@@ -161,7 +161,7 @@ class BoostHistorySyncTest {
 
         val exhausted = BoostHistorySync.decide(migrated, nsAvailable = true, now = now, isoNow = iso, state = state)
         assertThat(exhausted.requestBackfill).isFalse()
-        assertThat(exhausted.summary).isEqualTo("exhausted:3,days=2/7,bg=430/1500,tr=18/50@$iso")
+        assertThat(exhausted.summary).isEqualTo("exhausted:3,days=2/2,bg=430/700,tr=18/50@$iso")
         // Still capped a cooldown later, and forever after.
         val stillExhausted = BoostHistorySync.decide(
             migrated, nsAvailable = true, now = now + 10 * BoostHistorySync.RETRY_COOLDOWN_MS, isoNow = iso,
@@ -196,6 +196,6 @@ class BoostHistorySyncTest {
         val empty = BoostHistorySync.History(daysWithTdd = 0, bgReadings = 0, treatments = 0)
         val d = BoostHistorySync.decide(empty, nsAvailable = true, now = t0, isoNow = iso, state = fresh)
         assertThat(d.requestBackfill).isTrue()
-        assertThat(d.summary).contains("days=0/7,bg=0/1500,tr=0/50")
+        assertThat(d.summary).contains("days=0/2,bg=0/700,tr=0/50")
     }
 }
