@@ -77,11 +77,10 @@ enum class StringKey(
     // Used by BoostIsfShadow to persist EMA(τ=3h) sensitivity ratio across plugin restarts.
     ApsBoostIsfShadowState("boost_isf_shadow_state", "", defaultedBySM = true),
     ApsBoostVwaTddShadowState("boost_vwa_tdd_shadow_state", "", defaultedBySM = true),
-
-    // Anticipation shadow onset history (JSON blob: rolling exercise + meal onset timestamps,
-    // ~56-day window). Read/written by AnticipationShadow every Boost cycle to refit the per-user
-    // habit models. Blank/corrupt → empty (falls back to the cross-user prior). Read-only to dosing.
-    ApsBoostAnticipHistory("boost_anticip_history", "", defaultedBySM = true),
+    // Which plugin last ran the Boost engine ("v1" or "v6"; empty = never recorded, treated as v1).
+    ApsBoostLastEngineMode("boost_last_engine_mode", "", defaultedBySM = true, exportable = false),
+    // TDD-based ISF state at the last engine run ("true"/"false"; empty = never recorded), to detect it being switched on.
+    ApsBoostLastUseTdd("boost_last_use_tdd", "", defaultedBySM = true, exportable = false),
 
     // Sleep state machine persisted state (JSON blob: SleepState, hysteresis counters, entry ts)
     ApsBoostSleepState("boost_sleep_state", "", defaultedBySM = true),
