@@ -23,6 +23,7 @@ import app.aaps.core.interfaces.plugin.PluginBase
 import app.aaps.core.interfaces.plugin.PluginDescription
 import app.aaps.core.interfaces.resources.ResourceHelper
 import app.aaps.core.data.model.BS
+import app.aaps.core.data.model.RM
 import app.aaps.core.interfaces.constraints.ConstraintsChecker
 import app.aaps.core.interfaces.db.PersistenceLayer
 import app.aaps.core.interfaces.notifications.Notification
@@ -604,7 +605,7 @@ open class OpenAPSBoostV5Plugin @Inject constructor(
         aapsLogger.info(LTag.APS, "BoostV5 auto-config applied [$applied]; rationale: ${suggestion.rationale}")
         // Only surface a banner if we ACTUALLY changed something or have a held-back suggestion to
         // show. If every knob was already tuned by the user, applyAutoConfig skips it — announcing
-        // "configured" then changing nothing was the confusing behaviour Tim hit. One concise,
+        // "configured" then changing nothing was the confusing behaviour seen in the field. One concise,
         // readable line per knob; TBR-held cap raises are surfaced as manual suggestions.
         val heldSuggestions = resolutions.filter { it.outcome == BoostV5AutoConfigApply.Outcome.SUGGESTED_NOT_APPLIED_TBR }
             .map {
@@ -793,6 +794,8 @@ open class OpenAPSBoostV5Plugin @Inject constructor(
             // 2026-07-17 velocity-budget floor — same DUAL would/applied semantics keyed on the
             // ApsBoostV5VelocityBudgetActive toggle (see velocityBudgetFloorTarget). Null = conditions unmet.
             rT.boostV5_velocityBudgetWouldAdd = decision.velocityBudgetWouldAdd
+            // 2026-10-05 announced-meal telemetry, in the reason string rather than an RT field.
+            if (inputs.mealAnnounced) rT.reason.append("mealAnn=1,${if (decision.mealSessionStarted) "commit" else "-"}; ")
 
             val rtJson = v5DecisionToRtJson(decision)
             aapsLogger.info(LTag.APS, "BoostV5_RT: ${rtJson} actual_smb=${rT.units ?: 0.0} actual_insulinReq=${rT.insulinReq ?: 0.0} activeMode=$activeMode")
@@ -947,9 +950,11 @@ open class OpenAPSBoostV5Plugin @Inject constructor(
             // (it changes the state transition, not the delivered dose directly).
             aggressiveEarlyConfirmEnabled = preferences.getBoostDosing(BooleanKey.ApsBoostV5AggressiveEarlyConfirm),
             sensorQualityOk = if (activeMode) !flatBGsDetected else true,
-            profileSwitched = false,           // deferred reset trigger (microBolusAllowed gates actual dosing)
-            pumpDisconnected = false,
-            loopSuspended = false,
+            // 2026-10-08 (audit item 17): reset triggers wired to the running mode and the profile
+            // switch record. The time jump is derived in decide() from the persisted state's own clock.
+            profileSwitched = profileSwitchedSinceLastCycle(dateUtil.now()),
+            pumpDisconnected = runningModeAt(dateUtil.now())?.isPumpSuspended() == true,
+            loopSuspended = runningModeAt(dateUtil.now())?.let { it.isSuspended() && !it.isPumpSuspended() } == true,
             timeJumpMinutes = 0.0,
             aggressionUserKnob = aggressionKnob,
             hypoCautionUserKnob = hypoCautionKnob,
@@ -966,7 +971,46 @@ open class OpenAPSBoostV5Plugin @Inject constructor(
             primerUseTempBasal = preferences.getBoostDosing(BooleanKey.ApsBoostV5PrimerTbrFallback) &&
                 !preferences.getBoostDosing(BooleanKey.ApsBoostV5PrimerBolusMode),
             nowMs = dateUtil.now(),   // 2026-07-21 wall-clock for the primer-IOB accumulator decay
+            mealAnnounced = mealAnnounced(rT, dateUtil.now()),
         )
+    }
+
+    /**
+     * 2026-10-05: the meal was announced, by carbs on board in this cycle's result or by a manual or
+     * wizard bolus (BS.Type.NORMAL) within [MEAL_ANNOUNCED_BOLUS_WINDOW_MS]. SMBs and priming are not
+     * announcements. A failed read counts as not announced, which leaves the pre-2026-10-05 behaviour.
+     */
+    private fun mealAnnounced(rT: RT, now: Long): Boolean {
+        if ((rT.COB ?: 0.0) > 0.0) return true
+        return runCatching {
+            persistenceLayer.getBolusesFromTimeToTime(now - MEAL_ANNOUNCED_BOLUS_WINDOW_MS, now, true)
+                .any { it.type == BS.Type.NORMAL && it.amount > 0.0 }
+        }.getOrDefault(false)
+    }
+
+    // ── 2026-10-08 V5 reset-trigger inputs (dose-path audit item 17) ──────────────────────────────
+    // Each reset sends the meal state to IDLE and keeps the single-confirm session lock, so a trigger
+    // can only remove meal-state dosing, never add it. A failed read counts as no trigger.
+
+    /** Running mode now, or null when it cannot be read. Suspended modes include a super bolus. */
+    private fun runningModeAt(now: Long): RM.Mode? =
+        runCatching { persistenceLayer.getRunningModeActiveAt(now).mode }.getOrNull()
+
+    /** Identity (id, else timestamp) of the profile switch seen on the previous cycle; null before the first. */
+    @Volatile private var lastProfileSwitchKey: Long? = null
+
+    /**
+     * True when the active profile switch differs from the one seen on the previous cycle: a new
+     * switch, or a temporary one ending. The first cycle after start only records it, since a
+     * restart is covered by the staleness check in decide(). Boost's own activity percentage changes
+     * are applied inside the engine and create no profile switch record, so they do not trigger this.
+     */
+    private fun profileSwitchedSinceLastCycle(now: Long): Boolean {
+        val key = runCatching { persistenceLayer.getProfileSwitchActiveAt(now)?.let { if (it.id != 0L) it.id else it.timestamp } ?: 0L }
+            .getOrNull() ?: return false
+        val previous = lastProfileSwitchKey
+        lastProfileSwitchKey = key
+        return previous != null && previous != key
     }
 
     // When "Boost V5" is the active APS, GlucoseStatusProviderImpl + overview/Wear/Android Auto/
