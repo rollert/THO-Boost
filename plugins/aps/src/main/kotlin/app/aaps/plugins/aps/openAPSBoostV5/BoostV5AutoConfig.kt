@@ -106,8 +106,12 @@ object BoostV5AutoConfig {
      * just FOUR manual boluses — one of them an 8 U outlier. Below this floor the Confirmed cap
      * falls back to the SMB p95 alone (for SMB-dominant users that is the CORRECT path — their
      * SMB distribution is the real dose behaviour).
+     *
+     * NOTE for future merges: this value is a deliberate LOCAL deviation from upstream's 10.
+     * Do not "resolve" it back to 10 on conflict — keep 8 and re-check
+     * BoostV5AutoConfigTest's sample-fallback tests.
      */
-    const val MIN_MANUAL_BOLUS_SAMPLES = 10
+    const val MIN_MANUAL_BOLUS_SAMPLES = 8
 
     /**
      * Upper clamp of the derived rolling-60-min cumulative SMB cap — the preference range max of
