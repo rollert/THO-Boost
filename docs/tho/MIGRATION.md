@@ -21,7 +21,7 @@ Local backup directory: sibling `_migration-backups/2026-11-13` of the new clone
 - All old local branches preserved, including Boost-ML-Beta and Boost-ML-Beta-2. Their personal TDD/DST commits require reconciliation with dev, not automatic replay.
 - Local configuration backed up privately, outside this repository. No personal signing key identified in old repository scan (only a demo keystore).
 - IDE handover documents copied to local backup. They provide historical intent, not proof of current correctness.
-- Off-drive private backup remains pending selection of a destination by Thomas.
+- Thomas explicitly chose to keep backup files on this local disk only. No off-drive backup is requested. Validated V4 will become the productive source of truth; old backup deletion is not automatic.
 
 ## Decisions
 
