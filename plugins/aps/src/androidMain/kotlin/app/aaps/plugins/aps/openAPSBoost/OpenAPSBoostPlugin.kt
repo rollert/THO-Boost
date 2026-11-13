@@ -123,9 +123,10 @@ private const val DYNISF_MIN_TDD_FRACTION = 0.35
  * fail OPEN there, because the existing `tdd > 0` check still applies downstream).
  */
 internal fun tddImplausibleForProfile(tdd: Double, profileSens: Double, tdd7D: Double = tdd): Boolean {
+    if (!tdd.isFinite() || !tdd7D.isFinite()) return true
     if (profileSens <= 0.0) return false
     val impliedTdd = 1800.0 / profileSens
-    return tdd < impliedTdd * DYNISF_MIN_TDD_FRACTION
+    return tdd7D < impliedTdd * DYNISF_MIN_TDD_FRACTION || tdd < impliedTdd * 0.15
 }
 
 // @SingleIn(AppScope::class) MUST stay adjacent to this declaration. 2026-07-30..08-04: a KDoc, a
@@ -823,16 +824,16 @@ open class OpenAPSBoostPlugin @Inject constructor(
                 val tddWeightedFromLast8H = ((1.4 * tddLast4H) + (0.6 * tddLast8to4H)) * 3
                 debug.append("\nWeighted8H=${Round.roundTo(tddWeightedFromLast8H, 0.1)} (4H×1.4 + 8-4H×0.6)×3")
 
-                if (tddWeightedFromLast8H < (0.75 * tdd7D)) {
+                if (tddWeightedFromLast8H < (0.15 * tdd7D)) {
                     // Recent insulin usage significantly below 7D average —
                     // pull the 7D average down toward recent reality before blending
                     val adjusted7D = tddWeightedFromLast8H + ((tddWeightedFromLast8H / tdd7D) * (tdd7D - tddWeightedFromLast8H))
                     tdd = TddBlend.calculate(tddWeightedFromLast8H, tdd7D, tdd1D, boostPullDown = true)
-                    debug.append("\nW8H < 75% of 7D → adjusted7D=${Round.roundTo(adjusted7D, 0.1)} (7D ${Round.roundTo(tdd7D, 0.1)} pulled toward W8H)")
+                    debug.append("\nW8H < 15% of 7D → adjusted7D=${Round.roundTo(adjusted7D, 0.1)} (7D ${Round.roundTo(tdd7D, 0.1)} pulled toward W8H)")
                 } else {
                     // Standard blend
                     tdd = TddBlend.calculate(tddWeightedFromLast8H, tdd7D, tdd1D, boostPullDown = true)
-                    debug.append("\nStandard blend (W8H×.33 + 7D×.34 + 1D×.33)")
+                    debug.append("\nStandard blend (W8H×.80 + 7D×.10 + 1D×.10)")
                 }
                 debug.append("\nBlended TDD=${Round.roundTo(tdd, 0.1)}")
 
@@ -858,7 +859,7 @@ open class OpenAPSBoostPlugin @Inject constructor(
                 // configured, so a false positive costs dynamic responsiveness for that cycle and
                 // nothing else, which is why the fraction is set liberally rather than tightly.
                 val impliedTdd = if (profileSens > 0) 1800.0 / profileSens else 0.0
-                val tddImplausible = tddImplausibleForProfile(tdd, profileSens)
+                val tddImplausible = tddImplausibleForProfile(tdd, profileSens, tdd7D)
                 if (tddImplausible) {
                     // Leave sensNormalTarget at profileSens (its initial value) — do NOT derive.
                     debug.append(
