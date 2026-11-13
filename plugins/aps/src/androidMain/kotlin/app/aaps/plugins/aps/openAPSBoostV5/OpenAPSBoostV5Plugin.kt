@@ -478,7 +478,7 @@ open class OpenAPSBoostV5Plugin @Inject constructor(
     /** Throttled trailing-14d time-below-63 AND -70 mg/dL, then the fail-closed floor hypo-gate. */
     internal suspend fun composedFloorTbrAllowed(now: Long): Boolean {
         if (cachedTbrBelow63Pct == null || now - lastTbrGateComputeMs >= TBR_GATE_REFRESH_MS) {
-            val start = now - BoostV5AutoConfig.LOOKBACK_DAYS * 24L * 60 * 60 * 1000
+            val start = now - LIVE_TBR_LOOKBACK_DAYS * 24L * 60 * 60 * 1000
             val bgs = persistenceLayer.getBgReadingsDataFromTimeToTime(start, now, true)
             val n = bgs.size
             if (n >= TBR_GATE_MIN_READINGS) {
@@ -831,46 +831,52 @@ open class OpenAPSBoostV5Plugin @Inject constructor(
     private fun recordWritten(key: DoubleKey, value: Double) = ledgerPut(StringKey.ApsBoostV5AutoConfigWritten, key.key, value)
 
     private suspend fun maybeAutoConfigure() {
-        // Migration from the legacy global one-shot flag (raw read — get() would mask it in simple
-        // mode): mark resolved ONLY knobs whose stored value differs from the factory default (they
-        // were plausibly applied by the old run, or user-set — don't rewrite them). Knobs still AT
-        // factory default become eligible again — rescues installs where the old key-presence test
-        // or a consumed/imported flag wrongly skipped them. Clearing the flag makes the migration one-shot.
-        if (preferences.getIfExists(BooleanKey.ApsBoostV5AutoConfigDone) == true) {
-            val migrated = BoostV5AutoConfigApply.migrateLegacyDoneFlag(
-                BoostV5AutoConfigApply.managedDoubleKeys,
-                storedValue = { preferences.getIfExists(it) },
-                markResolved = { markResolved(it.key) }
-            ).map { it.key }.toMutableList()
-            val fc = BooleanKey.ApsBoostV5FastCarbConfirm
-            if (preferences.getIfExists(fc).let { it != null && it != fc.defaultValue }) {
-                markResolved(fc.key); migrated += fc.key
-            }
-            preferences.put(BooleanKey.ApsBoostV5AutoConfigDone, false)
-            aapsLogger.info(LTag.APS, "BoostV5 auto-config: migrated legacy done-flag → per-key; resolved=$migrated")
-        }
-
-        // Versioned re-migration of the persisted resolved flags (idempotent; stamps the schema
-        // version; MUST run before the steady-state early-return — a stranded install has every
-        // knob resolved). v2 rescues knobs the promoted APK's era-blind isUserTuned
-        // mis-resolved at OLD factory values — see BoostV5AutoConfigApply.AUTO_CONFIG_SCHEMA_VERSION.
-        BoostV5AutoConfigApply.runSchemaMigrations(
-            storedVersion = preferences.get(IntNonKey.BoostV5AutoConfigSchemaVersion),
-            keys = BoostV5AutoConfigApply.managedDoubleKeys,
-            isResolved = { isResolved(it.key) },
-            storedValue = { preferences.getIfExists(it) },
-            clearResolved = { preferences.remove(BooleanComposedKey.BoostV5AutoConfigResolved, it.key) },
-            setVersion = { preferences.put(IntNonKey.BoostV5AutoConfigSchemaVersion, it) }
-        ).forEach {
-            aapsLogger.info(
-                LTag.APS,
-                "BoostV5 auto-config re-migration v2: ${it.key} value ${preferences.getIfExists(it)} matches historical factory — re-opened for derivation"
-            )
-        }
-
-        // Steady state: everything resolved → nothing to do (cheap check, no data pulls).
         val allKeys = BoostV5AutoConfigApply.managedDoubleKeys.map { it.key } + managedBooleanKeys.map { it.key }
-        if (allKeys.all { isResolved(it) }) return
+        val needsConfig = configLock.withLock {
+            // Migration from the legacy global one-shot flag (raw read — get() would mask it in simple
+            // mode): mark resolved ONLY knobs whose stored value differs from the factory default (they
+            // were plausibly applied by the old run, or user-set — don't rewrite them). Knobs still AT
+            // factory default become eligible again — rescues installs where the old key-presence test
+            // or a consumed/imported flag wrongly skipped them. Clearing the flag makes the migration one-shot.
+            if (preferences.getIfExists(BooleanKey.ApsBoostV5AutoConfigDone) == true) {
+                val migrated = BoostV5AutoConfigApply.migrateLegacyDoneFlag(
+                    BoostV5AutoConfigApply.managedDoubleKeys,
+                    storedValue = { preferences.getIfExists(it) },
+                    markResolved = { markResolved(it.key) }
+                ).map { it.key }.toMutableList()
+                val fc = BooleanKey.ApsBoostV5FastCarbConfirm
+                if (preferences.getIfExists(fc).let { it != null && it != fc.defaultValue }) {
+                    markResolved(fc.key); migrated += fc.key
+                }
+                preferences.put(BooleanKey.ApsBoostV5AutoConfigDone, false)
+                aapsLogger.info(LTag.APS, "BoostV5 auto-config: migrated legacy done-flag → per-key; resolved=$migrated")
+            }
+    
+            // Versioned re-migration of the persisted resolved flags (idempotent; stamps the schema
+            // version; MUST run before the steady-state early-return — a stranded install has every
+            // knob resolved). v2 rescues knobs the promoted APK's era-blind isUserTuned
+            // mis-resolved at OLD factory values — see BoostV5AutoConfigApply.AUTO_CONFIG_SCHEMA_VERSION.
+            BoostV5AutoConfigApply.runSchemaMigrations(
+                storedVersion = preferences.get(IntNonKey.BoostV5AutoConfigSchemaVersion),
+                keys = BoostV5AutoConfigApply.managedDoubleKeys,
+                isResolved = { isResolved(it.key) },
+                storedValue = { preferences.getIfExists(it) },
+                clearResolved = { preferences.remove(BooleanComposedKey.BoostV5AutoConfigResolved, it.key) },
+                setVersion = { preferences.put(IntNonKey.BoostV5AutoConfigSchemaVersion, it) },
+                isExplicitManual = { preferences.getIfExists(BooleanComposedKey.BoostV5AutoConfigOwned, it.key) == false }
+            ).forEach {
+                aapsLogger.info(
+                    LTag.APS,
+                    "BoostV5 auto-config re-migration v2: ${it.key} value ${preferences.getIfExists(it)} matches historical factory — re-opened for derivation"
+                )
+            }
+    
+            // Steady state: everything resolved → nothing to do (cheap check, no data pulls).
+            !allKeys.all { isResolved(it) }
+    
+    
+        }
+        if (!needsConfig) return
 
         val now = dateUtil.now()
         val g = gatherProfile(now, BoostV5AutoConfig.LOOKBACK_DAYS)
@@ -1482,6 +1488,7 @@ open class OpenAPSBoostV5Plugin @Inject constructor(
 internal fun aggressiveEarlyConfirmAllowed(switchOn: Boolean, tbrBelow63Pct: Double?, tbrBelow70Pct: Double?): Boolean =
     switchOn && composedFloorAllowedByTbr(tbrBelow63Pct, tbrBelow70Pct)
 
+private const val LIVE_TBR_LOOKBACK_DAYS = 14L
 private const val NEED_WATCH_INTERVAL_MS = 24L * 60 * 60 * 1000
 private val NDW_TOKEN = Regex("ndw=[A-Z_]+(/[a-z]=[^,/]+)*")
 private val SMBMIN_TOKEN = Regex("smbmin=[^,]*")

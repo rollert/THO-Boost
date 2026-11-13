@@ -16,7 +16,7 @@ internal suspend fun <T : Any> withCurrentAutoConfig(
     snapshot: () -> AutoConfigSnapshot,
     evaluate: (AutoConfigSnapshot) -> T
 ): T? {
-    val eligible = allResolved()
-    val state = snapshot()
-    return lock.withLock { if (eligible) evaluate(state) else null }
+    return lock.withLock {
+        if (!allResolved()) null else evaluate(snapshot())
+    }
 }

@@ -967,7 +967,7 @@ internal object BoostV5AutoConfigApply {
         val cleared = mutableListOf<DoubleKey>()
         if (storedVersion < 2) {
             // v2: re-open knobs the era-blind isUserTuned mis-resolved at an old factory value.
-            cleared += keys.filter { isResolved(it) && !isUserTuned(it, storedValue(it)) }
+            cleared += keys.filter { isResolved(it) && !isExplicitManual(it) && !isUserTuned(it, storedValue(it)) }
                 .onEach(clearResolved)
         }
         // Future re-migrations: add `if (storedVersion < 3) { ... }` here and bump the constant.
