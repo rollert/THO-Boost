@@ -851,7 +851,7 @@ open class OpenAPSBoostV5Plugin @Inject constructor(
                 preferences.put(BooleanKey.ApsBoostV5AutoConfigDone, false)
                 aapsLogger.info(LTag.APS, "BoostV5 auto-config: migrated legacy done-flag → per-key; resolved=$migrated")
             }
-    
+
             // Versioned re-migration of the persisted resolved flags (idempotent; stamps the schema
             // version; MUST run before the steady-state early-return — a stranded install has every
             // knob resolved). v2 rescues knobs the promoted APK's era-blind isUserTuned
@@ -870,11 +870,11 @@ open class OpenAPSBoostV5Plugin @Inject constructor(
                     "BoostV5 auto-config re-migration v2: ${it.key} value ${preferences.getIfExists(it)} matches historical factory — re-opened for derivation"
                 )
             }
-    
+
             // Steady state: everything resolved → nothing to do (cheap check, no data pulls).
             !allKeys.all { isResolved(it) }
-    
-    
+
+
         }
         if (!needsConfig) return
 
