@@ -960,7 +960,8 @@ internal object BoostV5AutoConfigApply {
         isResolved: (DoubleKey) -> Boolean,
         storedValue: (DoubleKey) -> Double?,
         clearResolved: (DoubleKey) -> Unit,
-        setVersion: (Int) -> Unit
+        setVersion: (Int) -> Unit,
+        isExplicitManual: (DoubleKey) -> Boolean = { false }
     ): List<DoubleKey> {
         if (storedVersion >= AUTO_CONFIG_SCHEMA_VERSION) return emptyList()
         val cleared = mutableListOf<DoubleKey>()

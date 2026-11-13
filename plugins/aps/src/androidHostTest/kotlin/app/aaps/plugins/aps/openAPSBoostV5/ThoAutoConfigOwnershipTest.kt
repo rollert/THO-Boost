@@ -12,6 +12,15 @@ class ThoAutoConfigOwnershipTest {
     private val suggestion get() = BoostV5AutoConfig.compute(BoostV5AutoConfig.V1Profile(
         4, 1000, 40.0, List(8) { 4.0 }, List(100) { 0.3 }, 2.0, 0.1, 130.0, 6.0, 5.0))!!
 
+    @Test fun `schema rescue retains explicit manual factory value while rescuing legacy factory value`() {
+        val resolved = mutableSetOf(committed, confirmed)
+        val cleared = BoostV5AutoConfigApply.runSchemaMigrations(0, listOf(committed, confirmed),
+            isResolved = { it in resolved }, storedValue = { it.defaultValue },
+            clearResolved = { resolved.remove(it) }, setVersion = {}, isExplicitManual = { it == committed })
+        assertThat(cleared).containsExactly(confirmed)
+        assertThat(resolved).containsExactly(committed)
+    }
+
     private fun apply(store: MutableMap<DoubleKey, Double>, auto: Boolean, tbr: Double = 2.0) =
         BoostV5AutoConfigApply.applyAutoConfig(suggestion, tbr, isResolved = { false },
             storedValue = { store[it] }, put = { k, v -> store[k] = v }, markResolved = {},

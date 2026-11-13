@@ -571,21 +571,27 @@ open class OpenAPSBoostV5Plugin @Inject constructor(
             return
         }
 
-        val baselines = redriveBaselines()
-        val pending = ledger(StringKey.ApsBoostV5AutoConfigPending)
-        val written = writtenLedger()
-        val res = configLock.withLock { BoostV5AutoConfigApply.redrive(
+        val res = withCurrentAutoConfig(
+            configLock,
+            allResolved = { allKeys.all { isResolved(it) } },
+            snapshot = { AutoConfigSnapshot(redriveBaselines(), ledger(StringKey.ApsBoostV5AutoConfigPending), writtenLedger()) }
+        ) { state -> BoostV5AutoConfigApply.redrive(
             suggestion, tbrBelow70Pct = g.tbr70, timeBelow54Pct = g.sev54,
             storedValue = { preferences.getIfExists(it) },
-            baselineValue = { baselines[it.key] },
-            pendingValue = { pending[it.key] },
+            baselineValue = { state.baselines[it.key] },
+            pendingValue = { state.pending[it.key] },
             put = { key, value -> preferences.put(key, value) },
             setBaseline = { key, value -> setRedriveBaseline(key, value) },
             setPending = { key, value -> ledgerPut(StringKey.ApsBoostV5AutoConfigPending, key.key, value) },
-            lastWritten = { written[it.key] },
+            lastWritten = { state.written[it.key] },
             recordWritten = { key, value -> recordWritten(key, value) },
             isOwned = { it !in ownershipKeys || ownership.isAuto(it) }
-        ) }
+        ) } ?: run {
+            noteRedriveSkip(now, BoostV5AutoConfigApply.RedriveSkip.ONBOARDING_INCOMPLETE, "ownership changed")
+            return
+        }
+        val pending = ledger(StringKey.ApsBoostV5AutoConfigPending)
+        val written = writtenLedger()
         res.forEach { aapsLogger.info(LTag.APS, "BoostV5 re-derivation: ${it.key.key} → ${it.reason}") }
 
         // Primer delivery route, from this window's well-controlled verdict (the derivation's own
