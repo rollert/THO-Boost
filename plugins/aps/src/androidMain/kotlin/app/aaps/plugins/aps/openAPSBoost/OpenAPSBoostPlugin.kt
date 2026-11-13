@@ -103,32 +103,22 @@ import kotlin.math.min
 import app.aaps.plugins.aps.openAPSBoostV5.AutoConfigLedger
 import app.aaps.plugins.aps.openAPSBoostV5.MealHypothesis
 
-/**
- * implausible-TDD guard for dynamic ISF. Minimum blended TDD, as a fraction of the TDD the
- * user's own profile ISF implies via the 1800 rule (profileISF ~= 1800/TDD). Below this the insulin
- * history is treated as incomplete and dynamic ISF is NOT derived — the profile ISF is used instead.
- *
- * 0.35 is deliberately liberal. The fallback direction is safe (profileSens is the user's configured
- * value), so a false positive costs one cycle of dynamic responsiveness and nothing else, whereas a
- * false NEGATIVE paralyses dosing: a TDD far below implied gives a dynamic ISF many times the profile
- * ISF, and the loop delivers nothing. Every activation is logged (LTag.APS) and lands
- * in consoleError, so the true false-positive rate is auditable across the cohort before tightening.
- */
+/** Profile-implied TDD is a reference for detecting corrupt seven-day history. */
 private const val DYNISF_MIN_TDD_FRACTION = 0.35
+private const val DYNISF_NEAR_ZERO_TDD_FRACTION = 0.15
 
 /**
- * True when [tdd] is too low to be believed given what [profileSens] implies, so dynamic ISF must NOT
- * be derived from it. Extracted as a pure function so the guard is unit-testable independently of the
- * plugin's DI graph. Returns false when [profileSens] is non-positive (no reference to judge against —
- * fail OPEN there, because the existing `tdd > 0` check still applies downstream).
+ * THO: preserve plausible recent delivery drops when the seven-day history is healthy.
+ * Reject corrupt seven-day history, near-zero blended delivery, and non-finite inputs.
+ * A missing usable profile reference retains upstream's fail-open behavior; downstream checks
+ * still require positive TDD. The two-argument form retains the legacy history assumption.
  */
 internal fun tddImplausibleForProfile(tdd: Double, profileSens: Double, tdd7D: Double = tdd): Boolean {
     if (!tdd.isFinite() || !tdd7D.isFinite()) return true
     if (profileSens <= 0.0) return false
     val impliedTdd = 1800.0 / profileSens
-    return tdd7D < impliedTdd * DYNISF_MIN_TDD_FRACTION || tdd < impliedTdd * 0.15
+    return tdd7D < impliedTdd * DYNISF_MIN_TDD_FRACTION || tdd < impliedTdd * DYNISF_NEAR_ZERO_TDD_FRACTION
 }
-
 // @SingleIn(AppScope::class) MUST stay adjacent to this declaration. 2026-07-30..08-04: a KDoc, a
 // constant and a helper function were inserted between the two, which silently moved the annotation
 // onto the constant and left the engine UNSCOPED. OpenAPSBoostV5Plugin injects it and reads
@@ -844,36 +834,16 @@ open class OpenAPSBoostPlugin @Inject constructor(
 
                 // Safety: TDD must be positive and produce a sane ISF
                 val logTerm = ln((bgNormalTarget / insulinDivisor) + 1.0)
-                // IMPLAUSIBLE-TDD GUARD. The old condition was `tdd > 0` only, and the
-                // comment above claimed it ensured "a sane ISF" — it did not. A TDD of 0.1 U/day
-                // passes, and 1800/(tdd × logTerm) then explodes. Observed in the field on a
-                // cross-fork migration: a fresh AAPS database reported TDD 3.1–4.1 U/day against a
-                // true ~20, dynamic ISF reached 5550–8944 mg/dL/U against a profile ISF of 100
-                // (~88×), insulinReq computed at or below zero, and the loop delivered NOTHING for
-                // 3.5 h while BG climbed to 276 — 19 consecutive zero temp basals, no lows, no alarm.
-                //
-                // The floor is anchored on the profile's OWN implied TDD via the 1800 rule
-                // (profileISF ≈ 1800/TDD), so it is self-scaling per user and needs no magic ISF
-                // multiplier: a U200 user, a child and a high-TDD adult are all handled by their own
-                // profile. Falling back is SAFE-SIGNED — profileSens is the value the user/clinician
-                // configured, so a false positive costs dynamic responsiveness for that cycle and
-                // nothing else, which is why the fraction is set liberally rather than tightly.
+                // THO: seven-day data integrity and recent near-zero delivery are separate checks.
                 val impliedTdd = if (profileSens > 0) 1800.0 / profileSens else 0.0
                 val tddImplausible = tddImplausibleForProfile(tdd, profileSens, tdd7D)
                 if (tddImplausible) {
-                    // Leave sensNormalTarget at profileSens (its initial value) — do NOT derive.
-                    debug.append(
-                        "\n⚠ dynISF=PROFILE-FALLBACK: TDD ${Round.roundTo(tdd, 0.1)} U/day is below " +
-                            "${Round.roundTo(impliedTdd * DYNISF_MIN_TDD_FRACTION, 0.1)} " +
-                            "(${(DYNISF_MIN_TDD_FRACTION * 100).toInt()}% of the ${Round.roundTo(impliedTdd, 0.1)} " +
-                            "implied by profile ISF ${Round.roundTo(profileSens, 0.1)}) — insulin history looks " +
-                            "incomplete; using profile ISF instead of a derived one this cycle"
-                    )
-                    aapsLogger.info(
-                        LTag.APS,
-                        "Boost dynISF profile-fallback: tdd=${Round.roundTo(tdd, 0.1)} < " +
-                            "${Round.roundTo(impliedTdd * DYNISF_MIN_TDD_FRACTION, 0.1)} implied-floor; using profileSens=$profileSens"
-                    )
+                    // Keep this cycle's initial profile sensitivity; do not derive from rejected data.
+                    val message = "7D=${Round.roundTo(tdd7D, 0.1)}, blend=${Round.roundTo(tdd, 0.1)} U/day; " +
+                        "integrity floor=${Round.roundTo(impliedTdd * DYNISF_MIN_TDD_FRACTION, 0.1)}, " +
+                        "near-zero floor=${Round.roundTo(impliedTdd * DYNISF_NEAR_ZERO_TDD_FRACTION, 0.1)}; using profile ISF"
+                    debug.append("\n⚠ dynISF=PROFILE-FALLBACK: $message")
+                    aapsLogger.info(LTag.APS, "Boost dynISF profile-fallback: $message")
                 }
                 if (tdd > 0 && logTerm > 0 && !tddImplausible) {
                     sensNormalTarget = 1800.0 / (tdd * logTerm)
