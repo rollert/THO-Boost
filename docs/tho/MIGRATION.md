@@ -1,6 +1,6 @@
 # THO: AAPS 3.x → Boost on AAPS 4.0
 
-Status: migration in progress; no personal V4 dosing change implemented or validated yet.
+Status: personal V4 production changes ported and host-tested; final APK/runtime acceptance is tracked in VALIDATION.md. No therapy-device installation or release signing performed.
 
 ## Fixed references
 
@@ -30,6 +30,8 @@ Local backup directory: sibling `_migration-backups/2026-11-13` of the new clone
 - No force push, no replacement of existing master/dev, no release signing or therapy-phone installation during source migration.
 - Stock Boost CI explicitly checks out `tim2000s/Boost` at a release tag. It does **not** build the personal branch. Do not use it as proof of a THO build.
 - Start from reproducible unmodified V4; record baseline environment problems separately before porting.
+- Keep four-day history-gap detection as Thomas explicitly confirmed. The live hypo gate remains independently fourteen days; its query and the ownership integration fixes have regression tests.
+- Additional approved behavior: existing-derived tightening applies on the first daily window, with guarded slower reversal. Investigation of smaller cap bands is complete in CAP-REPLAY.md; production cap bands remain unchanged.
 
 ## Execution records
 

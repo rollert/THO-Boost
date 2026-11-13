@@ -1,6 +1,6 @@
 # THO V4 validation
 
-Status: unmodified production baseline built and tested. Personal behavior migration pending.
+Status: personal production port host-tested; final packaging/runtime evidence is added below. No release signing or therapy-phone installation.
 
 ## Recorded environment
 
@@ -52,3 +52,27 @@ Logs reside outside source under sibling `_migration-backups/2026-11-13/logs`.
 - APK package/version/signature/commit/checksum identity.
 - Isolated startup, settings, persistence and migration checks on test device/emulator.
 - Explicitly list incomplete signing, hardware, data and clinical-use assumptions.
+
+## Personal port and independent review
+
+- TDD tests: seven new production-path tests ran before behavior changes, six failed as expected. After implementation, full APS suite 1,137/1,137 passed.
+- Daily short-window tests: initial four expected failures; final four-day sufficiency policy confirmed by Thomas and real source `allowMissingDays=true`. Combined APS 1,143/1,143 passed.
+- Ownership tests: three expected failures out of four; after V4-native implementation and persisted-state tests, APS 1,149/1,149 passed.
+- DST: spring and autumn tests failed at the expected one-hour boundary before the change; full Constraints 128/128 passed afterward.
+- Fresh independent read-only review found three Important issues: live14-day safety query coupled to4-day derivation; explicit manual factory-value lost in schema rescue; stale tracking snapshot across ownership reset.
+- Four regression assertions reproduced the issues before fixes. After separating live history and making migration/eligibility/snapshots atomic, APS 1,153, Constraints 128 and core:keys 25 had zero failures/errors/skips. Keys' report came from an actually executed candidate-build run; later unchanged task was up-to-date.
+- Legacy removed plugin paths were reconciled through the active V6/SMB helpers; no obsolete plugin restored. Both beta personal patches matched the same stable patch ID.
+
+## Additional once-daily response behavior
+
+Thomas explicitly requested more actual automatic adjustments while retaining daily evaluation, and approved faster conservative changes plus cap replay investigation.
+
+- New tests first showed two expected failures: derived tightening waited for confirmation.
+- HypoCaution increases and Aggression decreases now apply on first daily evaluation. Step bounds, explicit ownership, existing derivation thresholds, neutral ceiling, and conditions for insulin-adding moves remain.
+- Better next-day conditions do not immediately reverse the tightening. Repeated loosening is still held if the TBR guard is tripped.
+- Full APS suite 1,157/1,157 passed after updating the two legacy symmetric-confirmation expectations to the new explicit asymmetric policy.
+- Separate engineering replay: one executed test, zero failures/errors, 108 result rows. See CAP-REPLAY.md. Experimental mutable-band harness was moved out of the repository before normal tests/builds; production cap bands were restored and never changed in source.
+
+## Final package and runtime
+
+Pending final helper build, combined reports and isolated API34 emulator smoke test. Any remaining sign-key, personal export/import or live hardware checks must be stated explicitly; no build alone closes those gates.

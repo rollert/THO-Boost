@@ -1,18 +1,20 @@
 # THO customization register
 
-Status: assessment in progress. None of the entries below is yet certified as ported or working in V4.
+Status: production port and host-test verification complete; final APK/device checks are recorded separately in VALIDATION.md. This is a technical test candidate, not a claim of clinical validation.
 
 ## Decision register
 
 | ID | Intended behavior from old personal source | V4 assessment and next proof | Status |
 |---|---|---|---|
-| THO-01 | TDD blend W8H/7D/1D = 80/10/10; Boost pull-down only below 15% of 7D | Active Boost engine still uses 33/34/33 and 75%; V6 delegates to this engine. Verify actual calculation via production tests, including boundary discontinuity; standalone SMB has deliberately no pull-down. | Assess/port |
-| THO-02 | DynISF guard: corrupt 7D below 35% of profile-implied TDD, or blended TDD below 15% | V4 helper still guards blended TDD at 35%. Need production helper tests plus fallback-path check, finite inputs and healthy-history rapid sensitivity change. The old handover warns about copied test formulas: do not reuse those as proof. | Assess/port |
-| THO-03 | Daily auto-config from four days; minimum two valid TDD days and 700 BG samples; eight manual bolus samples | V4 defaults remain 14-day initial /28-day redrive/weekly cadence and ten manual samples. New eligibility/guard logic must remain intact. Verify window queries, sample fallback, boundaries and confirmations. | Assess/port |
-| THO-04 | Explicit per-parameter Auto ownership: ON returns to auto next cycle; OFF freezes value | V4 has new ledger/Simple Mode behavior. Old switches cannot be copied without mapping preferences/UI and preserving manual intent across imports/restarts. | Assess/port |
-| THO-05 | DST suspension reduced from three hours to one | V4 uses a new running-mode suspension API but still three hours. Evaluate exact one-hour behavior, both transition directions and snooze handling. | Assess/port |
-| THO-06 | History backfill sufficient for personal windows, old value seven days | V4 now intentionally requests 30 days and has additional consumers and installation guards. Enumerate all consumers before reducing it; preserving a larger backfill may better meet V4 needs. | Decision pending |
-| THO-07 | Build settings, resources and documentation supporting the above | V4 already contains parallel tooling setting; avoid redundant patch. Keep old historical patch inactive. Update personal docs instead of rewriting upstream README. | Assess |
+| THO-01 | TDD blend W8H/7D/1D = 80/10/10; Boost pull-down only below 15% of 7D | Shared production TddBlend is called by active V6 engine and standalone SMB. SMB deliberately has no pull-down. ThoTddPolicyTest covers stable/rapid-drop/boundary examples. Old hidden V2/V3-family implementations were removed by V4; no obsolete plugin restored. | Ported, tested |
+| THO-02 | DynISF guard: corrupt 7D below 35% of profile-implied TDD, or blended TDD below 15% | Actual production helper tested, including nonfinite delivery and rapid drop with healthy week history. Engine keeps the profile fallback on rejection. | Ported, tested |
+| THO-03 | Daily auto-config from four days; minimum two valid TDD days and 700 BG samples; eight manual bolus samples | Production derivation, actual query inputs and schedule use four days/daily. Positive NORMAL records count toward eight; SMBs remain separate and supply fallback. ThoAutoConfigWindowTest covers sample/schedule boundaries. | Ported, tested |
+| THO-04 | Explicit per-parameter Auto ownership: ON returns to auto next cycle; OFF freezes value | V4-native preference switches reuse old registered storage prefix; EN/DE text. Tracked and computed cap freezes, state restart, schema rescue and queued reset are tested. Fresh derivation clears stale tracking. New V4 tranche threshold retains its own evidence policy. | Ported, tested |
+| THO-05 | DST suspension reduced from three hours to one | Existing V4 running-mode API retained; spring/autumn elapsed-time boundaries 59/60/61 minutes tested. | Ported, tested |
+| THO-06 | Detect insufficient history over the short window | Thomas explicitly retained four-day detection with two-day/700-reading floor. Boost's seven-day component already permits missing days. Keep V4's bounded 30-day fetch on an actual detected gap, preserving its newer consumers and retry/install restrictions; this does not require 30 days for derivation. | Adapted to V4, tested |
+| THO-07 | Build settings, resources and documentation supporting the above | Parallel tooling setting already upstream; no duplicate. Legacy SMB test comparator aligned with80/10/10. Old historical patch remains inactive. Personal docs/build profile/unsigned own-ref CI added. | Adapted |
+| THO-08 | Respond sooner to adverse windows while checking once daily | Existing-derived HypoCaution increases and Aggression decreases apply on first daily evaluation. Loosening still needs confirmation and TBR guard; step bounds and neutral ceiling remain. ThoDailyTighteningTest covers first change, reversal and guards. | Additional user-approved change, tested |
+| THO-09 | Investigate smaller cap changes through replays | Actual production replay compared100%/75%/50% bands on synthetic daily4d profiles. More writes and reversals at50%; no clinical calibration at4d. Keep production bands for now. See CAP-REPLAY.md. | Investigation complete; bands unchanged |
 
 ## Old final intent and deferred ideas
 
@@ -59,3 +61,9 @@ Paths below are relative to the old repository; old root prefixes shortened only
 | `plugins/constraints/src/test/kotlin/app/aaps/plugins/constraints/dstHelper/DstHelperPluginTest.kt` | THO-05 |
 
 Additional local beta branches preserve commits `1167077a36` and `c8d3caf964` (TDD/DST) and README changes. Reconcile them before declaring complete; their branch history is retained in the all-refs bundle.
+
+Reconciliation completed: these beta commits have identical stable patch ID `e19a0882be91d2bd58b8b14c3edc5ad8a516d6b6`; their final intended behavior is covered by THO-01 and THO-05. The table above retains every old net-diff file; path removal in V4 is not an unrecorded loss of an active feature.
+
+## Independent review fixes
+
+The four-day setting also fed the old live fourteen-day hypo gate. The live persistence query now uses an independent fourteen-day window; a test includes lows on day7 and proves they still block the relevant feature. Explicit manual-at-factory flags survive initial schema migration. Redrive reads eligibility and ledgers under the same lock as ownership reset/application; deterministic queued-transaction tests reproduce both stale-state cases. These are integration fixes, not new dosing thresholds.
