@@ -545,8 +545,9 @@ internal object BoostV5AutoConfigApply {
     )
 
     /**
-     * OFFSET knobs get hysteresis instead of a deadband: a new value must be derived twice
-     * consecutively before it is written, so a knob cannot flap across a threshold.
+     * OFFSET knobs get direction-aware hysteresis: a loosening must be derived twice
+     * consecutively before it is written. THO applies derived tightening on the first daily window;
+     * step limits, manual ownership and the TBR loosening guard remain unchanged.
      */
     val REDRIVE_CONFIRM_TWICE: Set<DoubleKey> = REDRIVE_OFFSET_KEYS.toSet()
 
@@ -680,7 +681,7 @@ internal object BoostV5AutoConfigApply {
                 continue
             }
 
-            if (key in REDRIVE_CONFIRM_TWICE) {
+            if (key in REDRIVE_CONFIRM_TWICE && loosening) {
                 val pending = pendingValue(key)
                 if (pending == null || abs(pending - proposed) > DEFAULT_EPS) {
                     setPending(key, proposed)
