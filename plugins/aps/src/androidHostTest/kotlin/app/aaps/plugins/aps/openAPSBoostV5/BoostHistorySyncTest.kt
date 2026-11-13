@@ -35,9 +35,9 @@ class BoostHistorySyncTest {
 
     @Test fun `each of the three signals is sufficient on its own to flag a gap`() {
         // Days of TDD short, everything else fine.
-        assertThat(BoostHistorySync.isSufficient(healthy.copy(daysWithTdd = 6))).isFalse()
+        assertThat(BoostHistorySync.isSufficient(healthy.copy(daysWithTdd = BoostHistorySync.MIN_DAYS_WITH_TDD - 1))).isFalse()
         // CGM short.
-        assertThat(BoostHistorySync.isSufficient(healthy.copy(bgReadings = 1499))).isFalse()
+        assertThat(BoostHistorySync.isSufficient(healthy.copy(bgReadings = BoostHistorySync.MIN_BG_READINGS - 1))).isFalse()
         // Treatments short.
         assertThat(BoostHistorySync.isSufficient(healthy.copy(treatments = 49))).isFalse()
     }
@@ -47,8 +47,8 @@ class BoostHistorySyncTest {
         assertThat(BoostHistorySync.MIN_DAYS_WITH_TDD).isEqualTo(BoostV5AutoConfig.MIN_DAYS)
         assertThat(BoostHistorySync.MIN_BG_READINGS).isEqualTo(BoostV5AutoConfig.MIN_BG_READINGS)
         // Boundary is inclusive — exactly at the minimum is enough, one below is not.
-        assertThat(BoostHistorySync.isSufficient(BoostHistorySync.History(7, 1500, 50))).isTrue()
-        assertThat(BoostHistorySync.isSufficient(BoostHistorySync.History(6, 1500, 50))).isFalse()
+        assertThat(BoostHistorySync.isSufficient(BoostHistorySync.History(BoostHistorySync.MIN_DAYS_WITH_TDD, BoostHistorySync.MIN_BG_READINGS, 50))).isTrue()
+        assertThat(BoostHistorySync.isSufficient(BoostHistorySync.History(BoostHistorySync.MIN_DAYS_WITH_TDD - 1, BoostHistorySync.MIN_BG_READINGS, 50))).isFalse()
     }
 
     @Test fun `the backfill window covers both consumers and no more`() {
