@@ -193,6 +193,7 @@ internal object BoostV5AutoConfigApply {
         // confirm-tranche threshold outcomes (resolveTrancheThreshold)
         INSUFFICIENT_EVIDENCE,    // too few labelled confirm episodes; nothing written
         LOOSENING_HELD,           // a lower threshold was derived and the lowering guard held it
+        MANUAL_FROZEN,            // explicitly kept manual by THO ownership switch
         AT_NEUTRAL_CEILING        // an aggression raise stopped at AGGRESSION_AUTO_CEILING
     }
 
@@ -600,7 +601,8 @@ internal object BoostV5AutoConfigApply {
         setBaseline: (DoubleKey, Double) -> Unit,
         setPending: (DoubleKey, Double?) -> Unit,
         lastWritten: (DoubleKey) -> Double? = { null },
-        recordWritten: (DoubleKey, Double) -> Unit = { _, _ -> }
+        recordWritten: (DoubleKey, Double) -> Unit = { _, _ -> },
+        isOwned: ((DoubleKey) -> Boolean)? = null
     ): List<Resolution> {
         val out = mutableListOf<Resolution>()
         val raiseGuard = tbrBelow70Pct > TBR_RAISE_GUARD_PCT || timeBelow54Pct >= TBR54_RAISE_GUARD_PCT
@@ -833,7 +835,8 @@ internal object BoostV5AutoConfigApply {
         // What auto-config last wrote to a knob it sets absolutely (the tranche threshold), and the
         // setter for it. Defaults suit a store that has never had one written.
         lastWritten: (DoubleKey) -> Double? = { null },
-        recordWritten: (DoubleKey, Double) -> Unit = { _, _ -> }
+        recordWritten: (DoubleKey, Double) -> Unit = { _, _ -> },
+        isOwned: (DoubleKey) -> Boolean = { false }
     ): List<Resolution> {
         val resolutions = mutableListOf<Resolution>()
         val operative = mutableMapOf<DoubleKey, Double>()
