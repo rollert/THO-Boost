@@ -163,26 +163,26 @@ class BoostV5RedriveTest {
     }
 
     // ── quantised knobs ────────────────────────────────────────────────────────────────────────
-    @Test fun `a quantised knob is not written until the same value repeats`() {
+    @Test fun `a quantised tightening is written on the first daily window`() {
         val st = freshStore()
         st.run(suggestionForTdd(40.0, tbr70 = 1.0), tbr70 = 1.0)         // baseline aggression 1.0
         val first = st.run(suggestionForTdd(40.0, tbr70 = 5.0), tbr70 = 5.0)
         assertThat(first.first { it.key == AGG }.outcome)
-            .isEqualTo(BoostV5AutoConfigApply.Outcome.AWAITING_CONFIRMATION)
-        assertThat(st.stored[AGG]).isEqualTo(1.0)
+            .isEqualTo(BoostV5AutoConfigApply.Outcome.REDRIVEN)
+        assertThat(st.stored[AGG]).isEqualTo(0.92)
         st.run(suggestionForTdd(40.0, tbr70 = 5.0), tbr70 = 5.0)
         assertThat(st.stored[AGG]!!).isWithin(1e-6).of(0.92)
     }
 
-    @Test fun `a flapping quantised knob is never written`() {
+    @Test fun `a flapping quantised knob tightens once without immediately reversing`() {
         val st = freshStore()
         st.run(suggestionForTdd(40.0, tbr70 = 1.0), tbr70 = 1.0)
         repeat(6) { i ->
             val tbr = if (i % 2 == 0) 5.0 else 3.0
             st.run(suggestionForTdd(40.0, tbr70 = tbr), tbr70 = tbr)
         }
-        assertThat(st.stored[AGG]).isEqualTo(1.0)
-        assertThat(st.writes.none { it.first == AGG }).isTrue()
+        assertThat(st.stored[AGG]).isEqualTo(0.92)
+        assertThat(st.writes.count { it.first == AGG }).isEqualTo(1)
     }
 
     @Test fun `an offset knob keeps the user's offset too`() {
