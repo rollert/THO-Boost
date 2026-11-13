@@ -78,7 +78,7 @@ class BoostHistorySyncTest {
     @Test fun `a gap plus a configured Nightscout requests the bounded backfill`() {
         val d = BoostHistorySync.decide(migrated, nsAvailable = true, now = t0, isoNow = iso, state = fresh)
         assertThat(d.requestBackfill).isTrue()
-        assertThat(d.summary).isEqualTo("requested:30d,attempt=1/3,days=2/7,bg=430/1500,tr=18/50@$iso")
+        assertThat(d.summary).isEqualTo("requested:30d,attempt=1/3,days=2/2,bg=430/700,tr=18/50@$iso")
         assertThat(d.newState!!.attempts).isEqualTo(1)
         assertThat(d.newState!!.lastAttemptMs).isEqualTo(t0)
         // Pre-counts snapshotted so the eventual outcome line can report a real delta.
@@ -111,7 +111,7 @@ class BoostHistorySyncTest {
     @Test fun `no Nightscout configured - records why, and does not consume an attempt`() {
         val d = BoostHistorySync.decide(migrated, nsAvailable = false, now = t0, isoNow = iso, state = fresh)
         assertThat(d.requestBackfill).isFalse()
-        assertThat(d.summary).isEqualTo("skipped:ns-unavailable,days=2/7,bg=430/1500,tr=18/50@$iso")
+        assertThat(d.summary).isEqualTo("skipped:ns-unavailable,days=2/2,bg=430/700,tr=18/50@$iso")
         // Nothing moves: configuring Nightscout later gets a full 3 attempts, without waiting out a cooldown.
         assertThat(d.newState!!.attempts).isEqualTo(0)
         assertThat(d.newState!!.lastAttemptMs).isEqualTo(0L)
@@ -162,7 +162,7 @@ class BoostHistorySyncTest {
 
         val exhausted = BoostHistorySync.decide(migrated, nsAvailable = true, now = now, isoNow = iso, state = state)
         assertThat(exhausted.requestBackfill).isFalse()
-        assertThat(exhausted.summary).isEqualTo("exhausted:3,days=2/7,bg=430/1500,tr=18/50@$iso")
+        assertThat(exhausted.summary).isEqualTo("exhausted:3,days=2/2,bg=430/700,tr=18/50@$iso")
         // Still capped a cooldown later, and forever after.
         val stillExhausted = BoostHistorySync.decide(
             migrated, nsAvailable = true, now = now + 10 * BoostHistorySync.RETRY_COOLDOWN_MS, isoNow = iso,
@@ -218,7 +218,7 @@ class BoostHistorySyncTest {
         val empty = BoostHistorySync.History(daysWithTdd = 0, bgReadings = 0, treatments = 0)
         val d = BoostHistorySync.decide(empty, nsAvailable = true, now = t0, isoNow = iso, state = fresh)
         assertThat(d.requestBackfill).isTrue()
-        assertThat(d.summary).contains("days=0/7,bg=0/1500,tr=0/50")
+        assertThat(d.summary).contains("days=0/2,bg=0/700,tr=0/50")
     }
 
     // A new install has no profile and no loop cycle, so this is the only thing that starts its sync.
