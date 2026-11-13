@@ -266,7 +266,7 @@ open class OpenAPSBoostV5Plugin @Inject constructor(
         }
         val last = preferences.get(LongNonKey.ApsBoostV5AutoConfigLastRedriveMs)
         val intervalMs = BoostV5AutoConfig.REDRIVE_INTERVAL_DAYS * 24L * 60 * 60 * 1000
-        return last == 0L || dateUtil.now() - last >= intervalMs
+        return BoostV5AutoConfig.redriveDue(last, dateUtil.now())
     }
 
     // When the insulin-need watch last ran. In memory only: after a restart it runs once more, and
@@ -531,7 +531,7 @@ open class OpenAPSBoostV5Plugin @Inject constructor(
         val now = dateUtil.now()
         val last = preferences.get(LongNonKey.ApsBoostV5AutoConfigLastRedriveMs)
         val intervalMs = BoostV5AutoConfig.REDRIVE_INTERVAL_DAYS * 24L * 60 * 60 * 1000
-        if (last != 0L && now - last < intervalMs) return                   // not due; silent by design
+        if (!BoostV5AutoConfig.redriveDue(last, now)) return                   // not due; silent by design
         // Don't run alongside onboarding: if any managed knob is still unresolved the first
         // derivation has not finished, and that path owns the settings until it has.
         val allKeys = BoostV5AutoConfigApply.managedDoubleKeys.map { it.key } + BooleanKey.ApsBoostV5FastCarbConfirm.key

@@ -74,6 +74,9 @@ object BoostV5AutoConfig {
      */
     const val REDRIVE_SCHEMA_VERSION = 2
 
+    fun redriveDue(lastMs: Long, nowMs: Long): Boolean =
+        lastMs == 0L || nowMs - lastMs >= REDRIVE_INTERVAL_DAYS * 24L * 60 * 60 * 1000
+
     const val REDRIVE_INTERVAL_DAYS = 7L
     const val REDRIVE_LOOKBACK_DAYS = 28L
     private const val SEV54_TARGET = 1.0      // % time <54 mg/dL
