@@ -58,11 +58,11 @@ class DstHelperPlugin(
 
     companion object {
 
-        private const val DISABLE_TIME_FRAME_HOURS = -3
+        private const val DISABLE_TIME_FRAME_HOURS = -1
         private const val WARN_PRIOR_TIME_FRAME_HOURS = 12
     }
 
-    //Return false if time to DST change happened in the last 3 hours.
+    //Return false if time to DST change happened in the last hour.
     override fun dstCheck() {
         val pump = activePlugin.activePump
         if (pump.canHandleDST()) return
