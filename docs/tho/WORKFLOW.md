@@ -53,6 +53,10 @@ $env:ANDROID_PREFS_ROOT = $null
 
 For Android Studio, open only the new Boost-THO project before using its MCP tools and do not run a second Gradle build alongside the CLI. This 16 GiB machine needs the conservative build limits above; source upstream defaults use substantially more memory.
 
+Local IDE limitation (2026-11-13): installed Android Studio rejects AGP9.5.0 because its maximum supported version is9.4.1. MCP project selection works; Gradle sync does not. Use the verified CLI profile until a compatible Studio version is installed. Do not downgrade upstream AGP merely to fit this IDE.
+
+Google's [compatibility table](https://developer.android.com/build/releases/about-agp) lists Android Studio Rabbit2 (2026.2.2) as supporting AGP9.5; Quail4 (2026.1.4), installed here, supports through9.4. This identifies the required IDE generation without changing the project. Verified2026-11-13; no IDE upgrade performed during migration.
+
 ## What becomes the new source of truth
 
 After technical and personal device acceptance, develop only on the new personal line; the old checkout is historical evidence. Backup files stay on this local disk at Thomas' request. They are not part of the daily workflow and are not automatically deleted.

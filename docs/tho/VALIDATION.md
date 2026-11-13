@@ -75,4 +75,12 @@ Thomas explicitly requested more actual automatic adjustments while retaining da
 
 ## Final package and runtime
 
-Pending final helper build, combined reports and isolated API34 emulator smoke test. Any remaining sign-key, personal export/import or live hardware checks must be stated explicitly; no build alone closes those gates.
+- Source build/tag: `017c446801f94e8a14e646d09c638a5aaee45519` / `tho-v4-6.3.2-rc1`, clean working tree during final build/test. Final combined reports: APS1,157 +Constraints128 +keys25 =1,310, zero failures/errors/skips. FullDebug helper build succeeded in33s; all five process environment values restored. Subsequent documentation commits do not change the APK's source identity.
+- APK: `AAPS-BOOST_Boost-THO_full_debug_2026-11-13_017c446801.apk`; package `info.nightscout.androidaps`, version4.0.0/code1500, minSDK31/target35.
+- SHA256: `A57FC5DD4FE43071AB5E9B607C54002D02FCCFBE9EDADA3212BA2541FB0081C8`.
+- apksigner verification succeeded. Android Debug certificate SHA256: `99b778c718c239d00bda6b15f8f8a94dcac002dea77b489fd33e0a8ac8817e86`.
+- Local export under `BOOST/THO-V4/tho-v4-6.3.2-rc1` contains APK, identity manifest and all three XML report sets. Backup logs stay outside source.
+- Own [GitHub validation run43513774888](https://github.com/rollert/Boost-in-AAPS_3.4/actions/runs/43513774888) checks out the source SHA above. Its live/final outcome is at that link and recorded in the local export manifest after completion; still running when this closeout document was written. Stock upstream-building CI is not substituted for this check.
+- Studio MCP selects onlyBoost-THO. Actual IDE sync is blocked: installed Studio supports AGP≤9.4.1; upstream requires9.5.0. CLI build works; no dependency downgrade applied.
+- Runtime smoke test BLOCKED before installation: isolated API34 emulator on port5580 did not complete boot. Read-only/no-snapshot attempts using SwiftShader graphics (including Vulkan disabled and an attached foreground session) terminated or stalled; adb listed a transport but shell commands did not return. Stopped the remaining owned session. No APK installation or successful app startup occurred; no therapy device was connected and no pump connection was configured. Logs retained privately; this is an environment failure, not a passed runtime test.
+- Still open: actual settings UI, personal export/import, restart persistence on device, personal signing-key compatibility, pump/hardware and clinical-use acceptance. Host ownership/schema tests do not replace these device checks. This remains a debug test candidate.

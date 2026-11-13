@@ -32,6 +32,7 @@ Local backup directory: sibling `_migration-backups/2026-11-13` of the new clone
 - Start from reproducible unmodified V4; record baseline environment problems separately before porting.
 - Keep four-day history-gap detection as Thomas explicitly confirmed. The live hypo gate remains independently fourteen days; its query and the ownership integration fixes have regression tests.
 - Additional approved behavior: existing-derived tightening applies on the first daily window, with guarded slower reversal. Investigation of smaller cap bands is complete in CAP-REPLAY.md; production cap bands remain unchanged.
+- Keep product changes focused to limit future merge work. Existing notification formatting issues (dimensionless values labeled U and operative value shown as previous value) remain separate reporting limitations.
 
 ## Execution records
 
