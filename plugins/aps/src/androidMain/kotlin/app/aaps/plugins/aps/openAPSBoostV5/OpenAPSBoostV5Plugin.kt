@@ -186,7 +186,7 @@ open class OpenAPSBoostV5Plugin @Inject constructor(
      * [OpenAPSBoostPlugin.runEngine].
      */
     override suspend fun invoke(initiator: String, tempBasalFallback: Boolean) {
-        // Auto-config work is OFF the dose path. It reads 14-28 days of TDD, boluses
+        // Auto-config work is OFF the dose path. It reads four days of TDD, boluses
         // and CGM, and running that synchronously here put a multi-second database sweep in front of
         // a dose decision — runCatching protects against an exception, but nothing protected against
         // latency. This only ENQUEUES the work and returns immediately.
@@ -257,7 +257,7 @@ open class OpenAPSBoostV5Plugin @Inject constructor(
         val allKeys = BoostV5AutoConfigApply.managedDoubleKeys.map { it.key } + BooleanKey.ApsBoostV5FastCarbConfirm.key
         if (!allKeys.all { isResolved(it) }) {                            // onboarding unfinished
             // At most hourly. While history is too short every attempt
-            // is a 14-day read that resolves nothing, and it ran on every loop cycle: 288 a day on a
+            // is a four-day read that resolves nothing, and it ran on every loop cycle: 288 a day on a
             // five-minute feed, 1,440 on a one-minute feed, for at least the first week.
             val now = dateUtil.now()
             if (now >= lastOnboardingAttemptMs && now - lastOnboardingAttemptMs < 60 * 60_000L) return false   // a clock moved back retries
@@ -265,7 +265,6 @@ open class OpenAPSBoostV5Plugin @Inject constructor(
             return true
         }
         val last = preferences.get(LongNonKey.ApsBoostV5AutoConfigLastRedriveMs)
-        val intervalMs = BoostV5AutoConfig.REDRIVE_INTERVAL_DAYS * 24L * 60 * 60 * 1000
         return BoostV5AutoConfig.redriveDue(last, dateUtil.now())
     }
 
@@ -530,7 +529,6 @@ open class OpenAPSBoostV5Plugin @Inject constructor(
     private suspend fun maybeRedrive() {
         val now = dateUtil.now()
         val last = preferences.get(LongNonKey.ApsBoostV5AutoConfigLastRedriveMs)
-        val intervalMs = BoostV5AutoConfig.REDRIVE_INTERVAL_DAYS * 24L * 60 * 60 * 1000
         if (!BoostV5AutoConfig.redriveDue(last, now)) return                   // not due; silent by design
         // Don't run alongside onboarding: if any managed knob is still unresolved the first
         // derivation has not finished, and that path owns the settings until it has.

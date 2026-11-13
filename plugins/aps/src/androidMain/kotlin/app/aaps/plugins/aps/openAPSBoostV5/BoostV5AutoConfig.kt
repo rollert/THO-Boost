@@ -25,8 +25,8 @@ import kotlin.math.min
 object BoostV5AutoConfig {
 
     // Minimum data before we'll auto-configure at all (else leave factory defaults).
-    const val MIN_DAYS = 7
-    const val MIN_BG_READINGS = 1500          // ~7 days of 5-min CGM minus gaps
+    const val MIN_DAYS = 2
+    const val MIN_BG_READINGS = 700          // Four-day sample floor, allowing missing readings
 
     // Glycaemic thresholds that trigger extra caution (international consensus targets).
     private const val TBR70_TARGET = 4.0      // % time <70 mg/dL
@@ -48,24 +48,13 @@ object BoostV5AutoConfig {
     const val WELL_CONTROLLED_MAX_SEV54 = 0.3
 
     /** History window for auto-config (also used by the plugin's data pulls). */
-    const val LOOKBACK_DAYS = 14L
+    const val LOOKBACK_DAYS = 4L
 
     /**
-     * PERIODIC RE-DERIVATION. Auto-config derives once at migration; a person drifts.
-     * The cadence grid over real history (8 users) priced every window/step pair:
-     *
-     *   W/S    lag(d)  changes/6mo  travel:progress  moves surviving the deadband
-     *   14/7    10.5      15.9           5.0                 6.09
-     *   14/14   14         8.8           3.2                 4.10
-     *   28/7    17.5      13.4           3.9                 2.89
-     *   28/14   21         7.1           2.7                 2.40
-     *   28/28   28         4.1           3.0                 1.79
-     *
-     * 28 days is the window because 14 is noise-dominated: two independent 14-day derivations of
-     * the SAME fortnight differ by 0.69 U [0.30, 1.17] on confirmedCap. 7 days is the cadence
-     * because evaluating often is cheap once the deadband, not the schedule, decides whether to
-     * write. Effective lag is W/2 + S/2 ~ 17.5 d, which is immaterial against what is being
-     * tracked: TDD drift, whose 5-month drift-to-noise ratio is only 2.72 [1.15, 4.59].
+     * THO: derive from four days daily to respond to regimen changes rather than slow drift.
+     * Consecutive windows overlap three days; confirmations are not independent samples.
+     * Preserve upstream deadbands, step caps and TBR guards. The separate confirm-tranche
+     * evidence window and live low-glucose safety windows are not shortened by this policy.
      */
     /**
      * Re-derivation persistence schema version. 2 = movement tracking with baselines (rev 2).
@@ -77,8 +66,8 @@ object BoostV5AutoConfig {
     fun redriveDue(lastMs: Long, nowMs: Long): Boolean =
         lastMs == 0L || nowMs - lastMs >= REDRIVE_INTERVAL_DAYS * 24L * 60 * 60 * 1000
 
-    const val REDRIVE_INTERVAL_DAYS = 7L
-    const val REDRIVE_LOOKBACK_DAYS = 28L
+    const val REDRIVE_INTERVAL_DAYS = 1L
+    const val REDRIVE_LOOKBACK_DAYS = 4L
     private const val SEV54_TARGET = 1.0      // % time <54 mg/dL
 
     /**
@@ -88,7 +77,7 @@ object BoostV5AutoConfig {
      * of n=4 is noise, not a dose habit. Below this floor the Confirmed cap falls back to the SMB
      * p95 alone (still clamped to [1.5, 7.5]).
      */
-    const val MIN_MANUAL_BOLUS_SAMPLES = 10
+    const val MIN_MANUAL_BOLUS_SAMPLES = 8
 
     /**
      * Upper clamp of the derived rolling-60-min cumulative SMB cap — the preference range max of

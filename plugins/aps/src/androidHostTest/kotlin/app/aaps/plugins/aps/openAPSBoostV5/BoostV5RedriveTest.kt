@@ -217,9 +217,9 @@ class BoostV5RedriveTest {
         assertThat(BoostV5AutoConfig.REDRIVE_SCHEMA_VERSION).isGreaterThan(0)
     }
 
-    @Test fun `cadence and window are the values the grid selected`() {
-        assertThat(BoostV5AutoConfig.REDRIVE_INTERVAL_DAYS).isEqualTo(7L)
-        assertThat(BoostV5AutoConfig.REDRIVE_LOOKBACK_DAYS).isEqualTo(28L)
+    @Test fun `cadence and window match the personal responsive policy`() {
+        assertThat(BoostV5AutoConfig.REDRIVE_INTERVAL_DAYS).isEqualTo(1L)
+        assertThat(BoostV5AutoConfig.REDRIVE_LOOKBACK_DAYS).isEqualTo(4L)
     }
 
     @Test fun `maxIOB and the bolus cap are never tracked`() {
