@@ -22,6 +22,11 @@ class ThoAutoConfigWindowTest {
         assertThat(BoostV5AutoConfig.compute(profile(bg = 699))).isNull()
     }
 
+    @Test fun `a short window can configure while backfill still seeks longer TDD history`() {
+        assertThat(BoostV5AutoConfig.compute(profile(days = 4, bg = 1000))).isNotNull()
+        assertThat(BoostHistorySync.isSufficient(BoostHistorySync.History(4, 1000, 100))).isFalse()
+    }
+
     @Test fun `manual bolus evidence begins at eight samples and seven uses SMB fallback`() {
         assertThat(BoostV5AutoConfig.compute(profile(days = 14, bg = 3500, samples = 7))!!.confirmedCapU).isEqualTo(1.5)
         assertThat(BoostV5AutoConfig.compute(profile(days = 14, bg = 3500, samples = 8))!!.confirmedCapU).isEqualTo(4.0)
