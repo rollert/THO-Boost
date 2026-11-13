@@ -49,7 +49,7 @@ $env:ANDROID_PREFS_ROOT = $null
 .\gradlew.bat :plugins:aps:testAndroidHostTest :plugins:constraints:testAndroidHostTest :core:keys:testAndroidHostTest --no-parallel --max-workers=1 '-Dorg.gradle.jvmargs=-Xmx2g -XX:+UseParallelGC -Xss4m' '-Pkotlin.daemon.jvmargs=-Xmx2g' --console=plain
 ```
 
-`THO validate personal Boost` checks out the triggering commit of this fork and builds a debug APK with reports, without release secrets. Stock `Boost CI` explicitly checks out Tim's release tag: it does not build THO code. Do not use stock Boost CI as a personal build or overwrite existing branches with GitHub Sync Fork.
+Thomas chose exclusively local tests/builds. The added `THO validate personal Boost` workflow was disabled and removed; its first run was cancelled, not counted as passed. GitHub stores source and history only. Stock upstream workflows remain historical/manual infrastructure and are not part of this workflow. Do not trigger them for THO builds or overwrite personal branches with GitHub Sync Fork.
 
 For Android Studio, open only the new Boost-THO project before using its MCP tools and do not run a second Gradle build alongside the CLI. This 16 GiB machine needs the conservative build limits above; source upstream defaults use substantially more memory.
 

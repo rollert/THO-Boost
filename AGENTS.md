@@ -11,6 +11,7 @@ This is Thomas' personal Boost variant. Follow the parent AAPS workspace rules.
 - Auto-config evaluates once daily over four days; do not conflate that with independent live safety windows.
 - Keep product patches minimal to limit future upstream merge conflicts; avoid unrelated refactoring.
 - Runtime acceptance requires real Android/Bluetooth hardware. Thomas explicitly excluded emulator testing: do not create or launch emulators for this project.
+- Build and test exclusively locally. Do not add or trigger GitHub builds unless Thomas changes this decision. GitHub is used for source/history only.
 - Release signing, destructive cleanup, force-push and therapy-phone installation require separate explicit authorization under workspace policy.
 - Keep private keys, health data and local configuration out of Git and artifact folders.
 - Workflow and validation evidence: `docs/tho/WORKFLOW.md`, `VALIDATION.md`, `MIGRATION.md`.

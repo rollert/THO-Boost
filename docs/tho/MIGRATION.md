@@ -33,6 +33,7 @@ Local backup directory: sibling `_migration-backups/2026-11-13` of the new clone
 - Keep four-day history-gap detection as Thomas explicitly confirmed. The live hypo gate remains independently fourteen days; its query and the ownership integration fixes have regression tests.
 - Additional approved behavior: existing-derived tightening applies on the first daily window, with guarded slower reversal. Investigation of smaller cap bands is complete in CAP-REPLAY.md; production cap bands remain unchanged.
 - Keep product changes focused to limit future merge work. Existing notification formatting issues (dimensionless values labeled U and operative value shown as previous value) remain separate reporting limitations.
+- Thomas' final tooling decision: exclusively local tests/builds, real Android/Bluetooth hardware for runtime acceptance, no emulator. The added GitHub CI was disabled/removed and its unfinished run cancelled. Emulator software and all active system/AVD/test images were removed via Windows recycle bin; build SDK components remain.
 
 ## Execution records
 
