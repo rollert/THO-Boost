@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="tho_auto_configuration">Automatische Einstellungen</string>
+    <string name="tho_auto_setting">Auto: %1$s</string>
+    <string name="tho_auto_summary">Ein: automatisch ableiten und täglich nachführen. Aus: deinen Wert beibehalten. Beim Einschalten erfolgt die Neuableitung im nächsten APS-Zyklus.</string>
+</resources>

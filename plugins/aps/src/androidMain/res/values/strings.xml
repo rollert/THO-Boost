@@ -196,4 +196,7 @@
     <string name="boost_permission_activity_title">Physical activity</string>
     <string name="boost_permission_activity_description">Boost reads the phone step counter to recognise exercise, inactivity and a morning lie-in.</string>
     <string name="boost_history_insulin_assumed">Nightscout history will download shortly. Records that name no insulin take the insulin in use, or your only listed insulin, and are not changed later. Check that insulin is right before relying on past IOB.</string>
+    <string name="tho_auto_configuration">Automatic settings</string>
+    <string name="tho_auto_setting">Auto: %1$s</string>
+    <string name="tho_auto_summary">On: derive automatically and track daily. Off: keep your value fixed. Turning on requests a fresh derivation on the next APS cycle.</string>
 </resources>

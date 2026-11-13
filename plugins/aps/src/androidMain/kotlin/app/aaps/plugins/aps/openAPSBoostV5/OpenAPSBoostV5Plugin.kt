@@ -1,5 +1,9 @@
 package app.aaps.plugins.aps.openAPSBoostV5
 
+import app.aaps.core.keys.interfaces.BooleanPreferenceKey
+import app.aaps.core.keys.interfaces.TextRef.Companion.withArgs
+import app.aaps.core.keys.interfaces.withChangeGuard
+
 import app.aaps.core.data.plugin.PluginType
 import app.aaps.core.interfaces.aps.IobTotal
 import app.aaps.core.interfaces.aps.APS
@@ -226,6 +230,21 @@ open class OpenAPSBoostV5Plugin @Inject constructor(
 
     /** Serialises auto-config writes against an engine run. Held briefly at each end. */
     private val configLock = Mutex()
+
+    private val ownership by lazy { AutoConfigOwnership(preferences) { lastOnboardingAttemptMs = 0L } }
+    // The new V4 tranche threshold retains its dedicated evidence policy; these are the old THO knobs.
+    private val ownershipKeys get() = BoostV5AutoConfigApply.managedDoubleKeys.filter { it != DoubleKey.ApsBoostV5TrancheThreshold }
+
+    private fun autoOwnershipSwitch(knob: DoubleKey): PreferenceItem =
+        object : BooleanPreferenceKey {
+            override val key = BooleanComposedKey.BoostV5AutoConfigOwned.key + knob.key
+            override val defaultValue = false
+            override val title = ApsStrings.tho_auto_setting.withArgs(rh.gs(knob.title))
+            override val summary = ApsStrings.tho_auto_summary
+        }.withChangeGuard { enabled ->
+            runBlocking { configLock.withLock { ownership.setAuto(knob, enabled) } }
+            null
+        }
 
     /** One background worker; a second evaluation is never queued behind a running one. */
     private val configExecutor: ExecutorService =
@@ -564,7 +583,8 @@ open class OpenAPSBoostV5Plugin @Inject constructor(
             setBaseline = { key, value -> setRedriveBaseline(key, value) },
             setPending = { key, value -> ledgerPut(StringKey.ApsBoostV5AutoConfigPending, key.key, value) },
             lastWritten = { written[it.key] },
-            recordWritten = { key, value -> recordWritten(key, value) }
+            recordWritten = { key, value -> recordWritten(key, value) },
+            isOwned = { it !in ownershipKeys || ownership.isAuto(it) }
         ) }
         res.forEach { aapsLogger.info(LTag.APS, "BoostV5 re-derivation: ${it.key.key} → ${it.reason}") }
 
@@ -884,7 +904,8 @@ open class OpenAPSBoostV5Plugin @Inject constructor(
             put = { key, value -> preferences.put(key, value) },
             markResolved = { markResolved(it.key) },
             lastWritten = { written[it.key] },
-            recordWritten = { key, value -> recordWritten(key, value) }
+            recordWritten = { key, value -> recordWritten(key, value) },
+            isOwned = { ownership.isAuto(it) }
         ) }
         // Log every classification verbatim so field diagnosis never needs inference.
         fun shortName(key: DoubleKey) = key.name.removePrefix("ApsBoostV5").removePrefix("ApsBoost")
@@ -1405,6 +1426,11 @@ open class OpenAPSBoostV5Plugin @Inject constructor(
                 key = "boost_advanced_settings",
                 title = CoreUiStrings.advanced_settings_title,
                 items = listOf<PreferenceItem>(
+                    PreferenceSubScreenDef(
+                        key = "tho_auto_configuration",
+                        title = ApsStrings.tho_auto_configuration,
+                        items = ownershipKeys.map { autoOwnershipSwitch(it) }
+                    ),
                     DoubleKey.ApsBoostV5Sensitivity,
                     DoubleKey.ApsBoostV5ConfirmedCapU,
                     DoubleKey.ApsBoostV5CommittedCapU,

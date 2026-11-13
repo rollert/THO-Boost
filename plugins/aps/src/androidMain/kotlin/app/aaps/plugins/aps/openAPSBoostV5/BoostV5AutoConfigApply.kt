@@ -612,6 +612,11 @@ internal object BoostV5AutoConfigApply {
         val start = operative.toMap()   // as stored before this run moved anything
 
         for (key in REDRIVE_KEYS) {
+            if (isOwned?.invoke(key) == false) {
+                val current = operative.getValue(key)
+                out += Resolution(key, Outcome.MANUAL_FROZEN, derivedFor.getValue(key), current, "manual: value frozen")
+                continue
+            }
             val current = operative.getValue(key)
             val derivedNow = derivedFor.getValue(key)
             val baseline = baselineValue(key)
@@ -723,7 +728,9 @@ internal object BoostV5AutoConfigApply {
         val cumAtStart = BoostV5AutoConfig.cumulativeCap60Min(
             start.getValue(DoubleKey.ApsBoostV5ConfirmedCapU), start.getValue(DoubleKey.ApsBoostV5CommittedCapU))
         val cumStored = storedValue(cum)
-        if (!computedKnobOwned(cum, cumStored, lastWritten(cum), listOf(cumAtStart), DEFAULT_EPS)) {
+        if (isOwned?.invoke(cum) == false) {
+            out += Resolution(cum, Outcome.MANUAL_FROZEN, newCum, curCum, "manual: cumulative cap frozen")
+        } else if (!computedKnobOwned(cum, cumStored, lastWritten(cum), listOf(cumAtStart), DEFAULT_EPS)) {
             out += Resolution(cum, Outcome.KEPT_USER_TUNED, newCum, curCum,
                               "kept:user-set $curCum (recomputed $newCum not written)")
         } else if (abs(newCum - curCum) > DEFAULT_EPS) {
@@ -752,6 +759,8 @@ internal object BoostV5AutoConfigApply {
             val primerStored = storedValue(primer)
             val primerAtStart = PRIMER_FRACTIONS.map { round2(start.getValue(DoubleKey.ApsBoostV5CommittedCapU) * it) }
             when {
+                isOwned?.invoke(primer) == false ->
+                    out += Resolution(primer, Outcome.MANUAL_FROZEN, newPrimer, curPrimer, "manual: primer cap frozen")
                 // A stored 0 is the primer's only off switch. Auto-config never writes 0 (the
                 // derivation's smallest primer is 0.375 x a committed cap of at least 0.25), so a
                 // stored 0 was set by the user and is never overwritten by a primer above 0.
@@ -850,7 +859,7 @@ internal object BoostV5AutoConfigApply {
                 operative[key] = current                    // untouched; feeds the cumulative recompute
                 return
             }
-            if (isUserTuned(key, stored)) {
+            if (isUserTuned(key, stored) && !isOwned(key)) {
                 markResolved(key)                           // user value kept; never revisit
                 operative[key] = current
                 resolutions += Resolution(key, Outcome.KEPT_USER_TUNED, derived, current, "kept-user-tuned value=$current (suggested $derived)")
