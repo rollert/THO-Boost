@@ -1,5 +1,7 @@
 package app.aaps.plugins.aps.openAPSBoost
 
+import app.aaps.plugins.aps.openAPS.TddBlend
+
 import android.Manifest
 import android.content.Context
 import android.content.Intent
@@ -120,7 +122,7 @@ private const val DYNISF_MIN_TDD_FRACTION = 0.35
  * plugin's DI graph. Returns false when [profileSens] is non-positive (no reference to judge against —
  * fail OPEN there, because the existing `tdd > 0` check still applies downstream).
  */
-internal fun tddImplausibleForProfile(tdd: Double, profileSens: Double): Boolean {
+internal fun tddImplausibleForProfile(tdd: Double, profileSens: Double, tdd7D: Double = tdd): Boolean {
     if (profileSens <= 0.0) return false
     val impliedTdd = 1800.0 / profileSens
     return tdd < impliedTdd * DYNISF_MIN_TDD_FRACTION
@@ -825,11 +827,11 @@ open class OpenAPSBoostPlugin @Inject constructor(
                     // Recent insulin usage significantly below 7D average —
                     // pull the 7D average down toward recent reality before blending
                     val adjusted7D = tddWeightedFromLast8H + ((tddWeightedFromLast8H / tdd7D) * (tdd7D - tddWeightedFromLast8H))
-                    tdd = (adjusted7D * 0.34) + (tdd1D * 0.33) + (tddWeightedFromLast8H * 0.33)
+                    tdd = TddBlend.calculate(tddWeightedFromLast8H, tdd7D, tdd1D, boostPullDown = true)
                     debug.append("\nW8H < 75% of 7D → adjusted7D=${Round.roundTo(adjusted7D, 0.1)} (7D ${Round.roundTo(tdd7D, 0.1)} pulled toward W8H)")
                 } else {
                     // Standard blend
-                    tdd = (tddWeightedFromLast8H * 0.33) + (tdd7D * 0.34) + (tdd1D * 0.33)
+                    tdd = TddBlend.calculate(tddWeightedFromLast8H, tdd7D, tdd1D, boostPullDown = true)
                     debug.append("\nStandard blend (W8H×.33 + 7D×.34 + 1D×.33)")
                 }
                 debug.append("\nBlended TDD=${Round.roundTo(tdd, 0.1)}")
