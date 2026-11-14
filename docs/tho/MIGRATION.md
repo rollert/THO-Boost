@@ -7,7 +7,7 @@ Status 2026-11-14: personal V4 changes ported and host-tested. Thomas built/sign
 - Old personal source: `3044e5b8ba9e27edf3cbcf53e75084d1cf66015a`.
 - Old upstream merge-base: `063e8cec7f8ebb275de81fc7a8fe60fcaa7daabb`.
 - Old GitHub dev: `dd60d101a5a5bbbc17e91d6f7f6009ed6109de88`; eleven additional local commits are included in the archive.
-- Remote archive: `rollert/Boost-THO`, branch `archive/tho-aaps3-2026-11-13`, verified against old personal SHA.
+- Remote archive: `rollert/THO-Boost`, branch `archive/tho-aaps3-2026-11-13`, verified against old personal SHA.
 - V4 baseline: `4.0.0-boost-6.3.2`, commit `c2d2c248dc90ca0c80a2b99e42a052a6b7a45593`.
 - Personal line: `tho/main`; origin = Thomas' existing fork; upstream = `tim2000s/Boost`.
 - Signed reference: `tho-v4-6.3.2-signed1`, source `9ff067f787ad6f663cbf6c027cdc79790147f72e`. APK hash and certificate fingerprint are in VALIDATION.md and the local export manifest.
@@ -27,7 +27,8 @@ Local backup directory: sibling `_migration-backups/2026-11-13` of the new clone
 
 ## Decisions
 
-- Retain the existing fork and historical folders. On 2026-11-14 the fork was renamed from `rollert/Boost-in-AAPS_3.4` to `rollert/Boost-THO`; repository ID1194867441 and parent `tim2000s/Boost` are unchanged. Default branch is now `tho/main`. All branch/tag refs were compared before/after rename and matched. The active clone uses the new URL; the old checkout keeps its historical remote configuration.
+- Retain the existing fork and historical folders. On 2026-11-14 the fork was renamed from `rollert/Boost-in-AAPS_3.4` to `rollert/THO-Boost`; repository ID1194867441 and parent `tim2000s/Boost` are unchanged. Default branch is now `tho/main`. All branch/tag refs were compared before/after rename and matched. The active clone uses the new URL; the old checkout keeps its historical remote configuration.
+- On the same day Thomas requested the final repository name `THO-Boost` instead of the intermediate `Boost-THO`. The local project folder remains `Boost-THO`; repository identity, default branch, source and reference tags are unchanged.
 - Use a separate clone rather than a linked worktree, as agreed, to keep old and new sources independent.
 - No force push, no replacement of existing master/dev, no release signing or therapy-phone installation during source migration.
 - Stock Boost CI explicitly checks out `tim2000s/Boost` at a release tag. It does **not** build the personal branch. Do not use it as proof of a THO build.

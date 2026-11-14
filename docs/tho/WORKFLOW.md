@@ -4,7 +4,7 @@ Status 2026-11-14: signed personal V4 reference, with successful initial operati
 
 ## Repository roles
 
-- `origin`: `https://github.com/rollert/Boost-THO.git` (same fork, renamed from `Boost-in-AAPS_3.4`).
+- `origin`: `https://github.com/rollert/THO-Boost.git` (same fork, renamed from `Boost-in-AAPS_3.4`).
 - `upstream`: `tim2000s/Boost`.
 - `tho/main`: personal integrated line and GitHub default branch.
 - `tho-v4-6.3.2-signed1`: fixed source reference for Thomas' signed APK; `tho-v4-6.3.2-rc1` remains the earlier debug reference.

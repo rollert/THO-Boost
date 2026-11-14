@@ -80,7 +80,7 @@ Thomas explicitly requested more actual automatic adjustments while retaining da
 - SHA256: `A57FC5DD4FE43071AB5E9B607C54002D02FCCFBE9EDADA3212BA2541FB0081C8`.
 - apksigner verification succeeded. Android Debug certificate SHA256: `99b778c718c239d00bda6b15f8f8a94dcac002dea77b489fd33e0a8ac8817e86`.
 - Local export under `BOOST/THO-V4/tho-v4-6.3.2-rc1` contains APK, identity manifest and all three XML report sets. Backup logs stay outside source.
-- The unfinished [GitHub validation run43513774888](https://github.com/rollert/Boost-THO/actions/runs/43513774888) was cancelled when Thomas chose exclusively local builds. All GitHub workflows are now disabled. No GitHub success is claimed; the 1,310-test and APK evidence above is local.
+- The unfinished [GitHub validation run43513774888](https://github.com/rollert/THO-Boost/actions/runs/43513774888) was cancelled when Thomas chose exclusively local builds. All GitHub workflows are now disabled. No GitHub success is claimed; the 1,310-test and APK evidence above is local.
 - Studio was switched to Boost-THO. The earlier2026.1.4/AGP9.5 mismatch was subsequently superseded by installation of Studio2026.2.2, verified2026-11-14. Thomas built the signed release; no extra IDE-sync test was run at closeout.
 - Emulator checks were explicitly rejected by Thomas and stopped; emulator software/images were removed at his request. They provide no device acceptance evidence. Further runtime checks use real Android/Bluetooth hardware.
 

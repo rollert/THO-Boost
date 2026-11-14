@@ -3,7 +3,7 @@
 This is Thomas' personal Boost variant. Follow the parent AAPS workspace rules.
 
 - Check exact repository, branch and dirty state before edits or builds.
-- `origin` is `rollert/Boost-THO` (renamed existing fork); `upstream` is `tim2000s/Boost`. Integrated personal and GitHub default branch: `tho/main`.
+- `origin` is `rollert/THO-Boost` (renamed existing fork); `upstream` is `tim2000s/Boost`. Integrated personal and GitHub default branch: `tho/main`.
 - Keep the old AAPS-3.4-BOOST reference and archive branch unchanged.
 - Read `docs/tho/CUSTOMIZATIONS.md` before upstream integration. Every retained behavior needs a production-path test or explicit evidence that upstream already implements it.
 - Update on a short `update/<release>` branch from a pinned upstream tag, test, then merge without rewriting published personal history.
