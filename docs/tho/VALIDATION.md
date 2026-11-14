@@ -1,6 +1,6 @@
 # THO V4 validation
 
-Status: personal production port host-tested; final packaging/runtime evidence is added below. No release signing or therapy-phone installation.
+Status 2026-11-14: production port host-tested; Thomas built/signed the release APK and reports successful initial operation. Signature and exact APK source identity were independently inspected locally. Specific observations still open are listed at the end; no blanket clinical validation is claimed.
 
 ## Recorded environment
 
@@ -8,7 +8,7 @@ Status: personal production port host-tested; final packaging/runtime evidence i
 - JAVA_HOME for baseline: Microsoft JDK 21.0.11; JVM target required by source: 21.
 - Gradle wrapper 9.8.2 successfully downloaded and executed `--version`; launcher JVM 21.0.11.
 - Baseline source requests compileSdk 37; local SDK initially contains platforms 34/35/36 and build-tools 33.0.1/34.0.0/35.0.0. Resolve required SDK components without editing source versions.
-- Android Studio MCP currently selects old AAPS-3.4-BOOST. No device connected. CLI build does not depend on IDE project selection.
+- At baseline, Android Studio MCP selected old AAPS-3.4-BOOST and no device was connected. It was later switched to Boost-THO; current closeout evidence is below. CLI build does not depend on IDE project selection.
 - `tasks --all` fails on an upstream Compose release-preview task whose unit tests are disabled. Targeted debug/host tasks work without modifying upstream source.
 - Installed by Gradle using existing accepted licenses: Build Tools 36.0.0 and Android Platform 37.0 revision 2.
 - Host has 16 GiB RAM. Upstream memory defaults exhausted local headroom; initial run was cancelled. The successful command below limits workers and heap without changing source.
@@ -50,7 +50,7 @@ Logs reside outside source under sibling `_migration-backups/2026-11-13/logs`.
 - Per-customization RED → GREEN behavior tests, or existing-upstream behavior proof.
 - Relevant combined suites, no disabled tests hiding failures.
 - APK package/version/signature/commit/checksum identity.
-- Isolated startup, settings, persistence and migration checks on test device/emulator.
+- Startup, settings, persistence and migration checks on real Android/Bluetooth hardware; emulator testing is explicitly excluded by Thomas.
 - Explicitly list incomplete signing, hardware, data and clinical-use assumptions.
 
 ## Personal port and independent review
@@ -80,7 +80,27 @@ Thomas explicitly requested more actual automatic adjustments while retaining da
 - SHA256: `A57FC5DD4FE43071AB5E9B607C54002D02FCCFBE9EDADA3212BA2541FB0081C8`.
 - apksigner verification succeeded. Android Debug certificate SHA256: `99b778c718c239d00bda6b15f8f8a94dcac002dea77b489fd33e0a8ac8817e86`.
 - Local export under `BOOST/THO-V4/tho-v4-6.3.2-rc1` contains APK, identity manifest and all three XML report sets. Backup logs stay outside source.
-- The unfinished [GitHub validation run43513774888](https://github.com/rollert/Boost-in-AAPS_3.4/actions/runs/43513774888) was cancelled when Thomas chose exclusively local builds. The added workflow was disabled/removed. No GitHub success is claimed; the 1,310-test and APK evidence above is local.
-- Studio MCP selects onlyBoost-THO. Actual IDE sync is blocked: installed Studio supports AGP≤9.4.1; upstream requires9.5.0. CLI build works; no dependency downgrade applied.
-- Device acceptance OPEN: Thomas explicitly ruled out emulator testing because real Bluetooth connectivity is central to this app. The attempted virtual-device checks were an unsuitable detour, produced no successful installation/startup, and were stopped. The newly created test AVD was removed from the active device registry without changing existing AVDs. Further runtime acceptance requires real Android/Bluetooth hardware. No therapy device or pump was touched.
-- Still open: actual settings UI, personal export/import, restart persistence on device, personal signing-key compatibility, pump/hardware and clinical-use acceptance. Host ownership/schema tests do not replace these device checks. This remains a debug test candidate.
+- The unfinished [GitHub validation run43513774888](https://github.com/rollert/Boost-THO/actions/runs/43513774888) was cancelled when Thomas chose exclusively local builds. All GitHub workflows are now disabled. No GitHub success is claimed; the 1,310-test and APK evidence above is local.
+- Studio was switched to Boost-THO. The earlier2026.1.4/AGP9.5 mismatch was subsequently superseded by installation of Studio2026.2.2, verified2026-11-14. Thomas built the signed release; no extra IDE-sync test was run at closeout.
+- Emulator checks were explicitly rejected by Thomas and stopped; emulator software/images were removed at his request. They provide no device acceptance evidence. Further runtime checks use real Android/Bluetooth hardware.
+
+## Signed reference and initial operation — 2026-11-14
+
+- Reference tag: `tho-v4-6.3.2-signed1`, anchored at actual source commit `9ff067f787ad6f663cbf6c027cdc79790147f72e`.
+- Original user-built APK: `app/full/release/app-full-release.apk`,153,660,107 bytes. Preserved unchanged; no signing operation was performed by Codex.
+- Embedded DEX strings independently confirm build ID `tho-v4-6.3.2-rc1-4-g9ff067f-2026.11.14` (also matches generated Release BuildConfig). The new source-reference tag was created after this build, so the embedded older tag description is retained.
+- SHA256: `F56D19BD768F6A7C5BF4C7AB05A9309B7F4652F1EECDEF1C9120CBC788A43E65`.
+- apksigner verify exit0; certificate SHA256: `1e9cb0646f74ec12c5ac3ff95a2e3c91b6c145b123b66d712ee0680aa413272b`.
+- Package `info.nightscout.androidaps`, version4.0.0/code1500, minSDK31/target35.
+- Local export: `BOOST/THO-V4/tho-v4-6.3.2-signed1`, containing signed APK, manifest, SHA256SUMS, acceptance note and local host-test XML reports. Copied APK SHA matches original.
+- Product/test sources at9ff067f787 are unchanged from the1,310-test candidate017c446801; differences are documentation, working rules and removal of CI. No redundant test rerun or release rebuild was performed at closeout.
+- Thomas reports: built with his key, tested, running well so far. This closes user-reported successful signed build and initial app operation. It does not independently establish which hardware scenarios were exercised or prove compatibility with an older signing key.
+- The IDE-referenced keystore has a separate private local backup, with matching file hash and copied access controls. Original untouched; no password read/stored and no new signing performed. This file backup does not claim an additional keystore unlock or old/new certificate comparison.
+
+Remaining targeted observations (not extra code changes):
+
+1. Actual once-daily AutoConfig evaluation, eligible changes and corresponding notifications; no requirement for a parameter change every day.
+2. Manual ownership and settings retained after a normal app/device restart.
+3. Personal settings import if used, and specific Bluetooth/pump behavior beyond the reported basic operation.
+
+Record these from actual operation without changing therapy parameters merely to provoke a test. Broader cap-sensitivity changes remain a separate decision; CAP-REPLAY.md records why production bands remain unchanged.

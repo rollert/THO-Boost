@@ -1,6 +1,6 @@
 # THO customization register
 
-Status: production port and host-test verification complete; final APK/device checks are recorded separately in VALIDATION.md. This is a technical test candidate, not a claim of clinical validation.
+Status 2026-11-14: production port and host-test verification complete. Thomas' signed1 reference and successful initial operation are recorded in VALIDATION.md; targeted daily-AutoConfig/persistence/device observations remain open. This is not a claim of clinical validation.
 
 ## Decision register
 
